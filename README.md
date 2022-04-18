@@ -52,17 +52,19 @@ Place `microcouch.js` and `pouchdb-merge.js` into your served directory. Then:
 ```
 
 ## Replication can be so fast
+Basically due to the use of inline attachment fetching via `_bulk_get` this is about 4-5 times faster than PouchDB:
 
-Replicating a 1.5MB database with 2326 tiny docs each with very small attachments:
-* PouchDB: 25355.89ms 25.36s, 3.2MB transferred, 2.5MB resources loaded
-* Microcouch: 4629.26ms 4.63s, 2.0MB transferred, 1.9MB resources loaded
+### Replicating a 1.5MB database with 2326 tiny docs each with very small attachments
+* PouchDB: 25.36s, 3.2MB transferred, 2.5MB resources loaded
+* Microcouch: 4.63s, 2.0MB transferred, 1.9MB resources loaded
 PouchDB failed to fetch multiple times, after reducing batch size to 64 it worked.
 
 **Diff: 18.26%**
 
-Replicating a big 0.6GB database of 46832 documents with a sec of 53841. Perf test done with a batch size of 512.
-* PouchDB:   1333907.96ms 1333.90s 22.23m, 182MB transferred, 4845MB resources loaded 
-* Microcouch: 321340.67ms  321.34s  5.36m, 181MB transferred, 4827MB resources loaded
+### Replicating a big 0.6GB database of 46832 documents with a sec of 53841.
+Perf test done with a batch size of 512:
+* PouchDB: 22.23m, 182MB transferred, 4845MB resources loaded 
+* Microcouch: 5.36m, 181MB transferred, 4827MB resources loaded
 
 **Diff: 24.09%**
 

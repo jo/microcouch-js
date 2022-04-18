@@ -57,15 +57,22 @@ Basically due to the use of inline attachment fetching via `_bulk_get` this is a
 ### Replicating a 1.5MB database with 2326 tiny docs each with very small attachments
 * PouchDB: 25.36s, 3.2MB transferred, 2.5MB resources loaded
 * Microcouch: 4.63s, 2.0MB transferred, 1.9MB resources loaded
-PouchDB failed to fetch multiple times, after reducing batch size to 64 it worked.
 
 **Diff: 18.26%**
 
+PouchDB failed to sync multiple times, after reducing batch size to 64 it worked.
+
 ### Replicating a big 0.6GB database of 46832 documents with a sec of 53841.
 Perf test done with a batch size of 512:
+
 * PouchDB: 22.23m, 182MB transferred, 4845MB resources loaded 
 * Microcouch: 5.36m, 181MB transferred, 4827MB resources loaded
 
 **Diff: 24.09%**
+
+
+## Test
+No tests, sorry. I wish we would have a outside couch test suite, where we can test various implementations agains. It could work via replicating a known source db back and forth and checking the result. Maybe also doing some pre-defined doc updates.
+
 
 (c) 2022 Johannes J. Schmidt

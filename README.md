@@ -1,7 +1,8 @@
 # Microcouch
-A minimal Pouch-like implementation of a CouchDB compatible in-browser couch. Data model compatible to PouchDBs experimental `indexeddb` adapter.
+A minimal Pouch-like implementation of a CouchDB compatible in-browser couch. Basically this is for educational purpose by now. I already learned a lot.
 
-Basically this is for educational purpose by now. I already learned a lot.
+Data model compatible to PouchDBs experimental `indexeddb` adapter. It uses the great [pouchdb-merge](https://github.com/pouchdb/pouchdb/tree/master/packages/node_modules/pouchdb-merge) module.
+
 
 Focus on a small set of functionality:
 * replication

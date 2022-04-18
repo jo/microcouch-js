@@ -1,0 +1,35 @@
+{
+  "name": "microcouch-js",
+  "version": "1.0.0",
+  "description": "A minimal Pouch-like implementation of a CouchDB compatible in-browser couch.",
+  "main": "microcouch.js",
+  "type": "module",
+  "keywords": [
+    "couchdb",
+    "pouchdb",
+    "database"
+  ],
+  "author": "Johannes J. Schmidt",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jo/microcouch-js"
+  },
+  "bugs": {
+    "url": "https://github.com/jo/microcouch-js/issues"
+  },
+  "homepage": {
+    "url": "https://github.com/jo/microcouch-js"
+  },
+  "scripts": {
+    "dist": "cp ./node_modules/pouchdb-merge/lib/index.es.js pouchdb-merge.js"
+  },
+  "files": [
+    "microcouch.js",
+    "pouchdb-merge.js",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "pouchdb-merge": "7.3.0"
+  }
+}

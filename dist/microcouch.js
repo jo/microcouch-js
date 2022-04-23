@@ -741,7 +741,7 @@ var Local = class {
   }
 };
 
-// ../multipart-related/multipart-related.js
+// node_modules/multipart-related/src/first-boundary-position.js
 function firstBoundaryPosition(data, boundary, offset = 0) {
   if (offset > data.length + boundary.length + 2) {
     return -1;
@@ -762,6 +762,8 @@ function firstBoundaryPosition(data, boundary, offset = 0) {
   }
   return -1;
 }
+
+// node_modules/multipart-related/src/first-header-separator-position.js
 function firstHeaderSeparatorPosition(data, offset = 0) {
   if (offset > data.length + 4) {
     return -1;
@@ -773,6 +775,8 @@ function firstHeaderSeparatorPosition(data, offset = 0) {
   }
   return -1;
 }
+
+// node_modules/multipart-related/src/starts-with-boundary-end.js
 function startsWithBoundaryEnd(data, boundary, offset = 0) {
   if (offset > data.length + boundary.length + 4) {
     return false;
@@ -792,6 +796,8 @@ function startsWithBoundaryEnd(data, boundary, offset = 0) {
   }
   return true;
 }
+
+// node_modules/multipart-related/src/multipart-related-parser.js
 var MultipartRelatedParser = class {
   constructor(contentType) {
     this.encoder = new TextEncoder();
@@ -856,7 +862,9 @@ var MultipartRelatedParser = class {
     };
   }
 };
-var MultipartUnpacker = class {
+
+// node_modules/multipart-related/src/index.js
+var MultipartRelated = class {
   constructor(contentType) {
     this.parser = new MultipartRelatedParser(contentType);
     this.data = new Uint8Array(0);
@@ -1061,13 +1069,13 @@ var Remote = class {
       throw new Error("Could not get revs");
     }
     const contentType = response.headers.get("Content-Type");
-    const unpacker = new MultipartUnpacker(contentType);
+    const multipart = new MultipartRelated(contentType);
     const reader = response.body.getReader();
     let currentBoundary;
     let currentParts = [];
     const decoder = new TextDecoder();
     const process = ({ value, done }) => {
-      const parts = unpacker.read(value);
+      const parts = multipart.read(value);
       for (const part of parts) {
         if (!part.related) {
           const { headers, data } = part;
@@ -1240,86 +1248,6 @@ var Replication = class {
 };
 
 // src/Microcouch.js
-var REPLICATION_BATCH_SIZE = 512;
-var generateReplicationId = async (localId, remoteId) => {
-  const text = localId + remoteId;
-  return await calculateSha1(text);
-};
-var findCommonAncestor2 = (localLog, remoteLog) => {
-  return localLog.session_id && localLog.session_id === remoteLog.session_id && localLog.source_last_seq && localLog.source_last_seq === remoteLog.source_last_seq ? localLog.source_last_seq : null;
-};
-var replicate = async (source, target) => {
-  const replicationType = `replication ${source.constructor.name}\u2192${target.constructor.name}`;
-  console.time(replicationType);
-  const sessionId = makeUuid();
-  const [
-    localUuid,
-    remoteUuid,
-    remoteSeq
-  ] = await Promise.all([
-    target.getUuid(),
-    source.getUuid(),
-    source.getUpdateSeq()
-  ]);
-  const replicationId = await generateReplicationId(localUuid, remoteUuid);
-  const [
-    targetLog,
-    sourceLog
-  ] = await Promise.all([
-    target.getReplicationLog(replicationId),
-    source.getReplicationLog(replicationId)
-  ]);
-  const since = findCommonAncestor2(targetLog, sourceLog);
-  const sinceNumber = parseInt(since, 10) || 0;
-  const remoteSeqNumber = parseInt(remoteSeq, 10);
-  let lastSeq;
-  let addedRevs = 0;
-  let done = false;
-  if (sinceNumber < remoteSeqNumber) {
-    let lastSeqNumber = 0;
-    while (!done) {
-      const result = await replicateBatch(source, target, lastSeq || since);
-      lastSeq = result.lastSeq;
-      addedRevs += result.addedRevs;
-      done = result.done || lastSeqNumber === remoteSeqNumber;
-      lastSeqNumber = parseInt(lastSeq, 10);
-    }
-    sourceLog.session_id = sessionId;
-    sourceLog.source_last_seq = lastSeq;
-    targetLog.session_id = sessionId;
-    targetLog.source_last_seq = lastSeq;
-    await Promise.all([
-      target.saveReplicationLog(targetLog),
-      source.saveReplicationLog(sourceLog)
-    ]);
-  }
-  console.timeEnd(replicationType);
-  return {
-    lastSeq,
-    addedRevs
-  };
-};
-var replicateBatch = async (source, target, since) => {
-  const { changes, lastSeq } = await source.getChanges({ since, limit: REPLICATION_BATCH_SIZE });
-  const missingRevs = await target.getRevsDiff(changes);
-  let newRevs = [];
-  if (missingRevs.length) {
-    if (source instanceof Remote) {
-      await source.getRevsMultipart(missingRevs, async (doc) => {
-        newRevs.push(doc);
-        await target.saveRev(doc);
-      });
-    } else {
-      newRevs = await source.getRevs(missingRevs);
-      await target.saveRevs(newRevs);
-    }
-  }
-  return {
-    lastSeq,
-    addedRevs: newRevs.length,
-    done: changes.length < REPLICATION_BATCH_SIZE
-  };
-};
 var Microcouch = class extends EventTarget {
   constructor({ name, url, headers }) {
     super();
@@ -1345,15 +1273,6 @@ var Microcouch = class extends EventTarget {
   async pull() {
     const replication = new Replication(this.remote, this.local);
     return replication.replicate();
-  }
-  push() {
-    return replicate(this.local, this.remote);
-  }
-  sync() {
-    return Promise.all([
-      this.pull(),
-      this.push()
-    ]);
   }
 };
 export {

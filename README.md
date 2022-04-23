@@ -5,7 +5,6 @@ A minimal Pouch-like implementation of a CouchDB compatible in-browser couch. Ba
 
 Data model compatible to PouchDBs experimental `indexeddb` adapter. It uses the great [pouchdb-merge](https://github.com/pouchdb/pouchdb/tree/master/packages/node_modules/pouchdb-merge) module.
 
-
 Focus on a small set of functionality:
 * replication
 * get/save doc
@@ -13,29 +12,30 @@ Focus on a small set of functionality:
 * all docs
 * changes
 * no MR
-* small attachments
+* attachments
 * indexeddb only
-* js modules, no build tool
-* specific functions, few options only
+* modern browsers
 
 
 ## State of Work
 Basic functionality works
 
 Left to do:
+* proper batch streams for replication (currently does not really work)
+* push replication
 * use md5 for digesting and revs and replication logs
 * implement `getDocs` and `saveDocs`
-* implement push replication
+
 
 ## Usage
-Place `microcouch.js` into your served directory. Then:
+Place `dist/microcouch.js` into your served directory. Then:
 
 ```html
 <script type=module>
   import Microcouch from './microcouch.js'
 
   const mc = new Microcouch({
-    name: 'rouch-test',
+    name: 'microcouch-test',
     url: new URL('https://couch.example.com/my-couch-db'),
     headers: {
       Authorization: 'Basic ' + btoa('username:password')

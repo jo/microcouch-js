@@ -1,7 +1,7 @@
 // remote http database
 
 import { makeUuid, base64ToBlob, blobToBase64 } from './utils.js'
-import MultipartUnpacker from 'multipart-related'
+import MultipartRelated from 'multipart-related'
 
 export default class Remote {
   constructor ({ url, headers }) {
@@ -206,7 +206,7 @@ export default class Remote {
     }
     
     const contentType = response.headers.get('Content-Type')
-    const unpacker = new MultipartUnpacker(contentType)
+    const multipart = new MultipartRelated(contentType)
     const reader = response.body.getReader()
     
     // tie together the process stream
@@ -214,7 +214,7 @@ export default class Remote {
     let currentParts = []
     const decoder = new TextDecoder()
     const process = ({ value, done }) => {
-      const parts = unpacker.read(value)
+      const parts = multipart.read(value)
 
       for (const part of parts) {
         if (!part.related) {

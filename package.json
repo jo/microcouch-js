@@ -22,14 +22,13 @@
     "url": "https://github.com/jo/microcouch-js"
   },
   "scripts": {
-    "build": "esbuild src/Microcouch.js --bundle --format=esm --outfile=microcouch.js"
+    "build": "esbuild src/Microcouch.js --bundle --format=esm --outfile=dist/microcouch.js"
   },
-  "files": [
-    "microcouch.js",
-    "LICENSE"
-  ],
   "devDependencies": {
-    "esbuild": "^0.14.38",
+    "esbuild": "^0.14.38"
+  },
+  "dependencies": {
+    "multipart-related": "^1.0.0",
     "pouchdb-merge": "7.3.0"
   }
 }

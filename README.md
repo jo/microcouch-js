@@ -1,6 +1,8 @@
 # Microcouch
 A minimal Pouch-like implementation of a CouchDB compatible in-browser couch. Basically this is for educational purpose by now. I already learned a lot.
 
+**Disclaimer: Microcouch is an absolute beta version, which currently serves more for educational purposes. I'm experimenting with various optimizations here to speed up replication. However, I still dream of developing this further over time to have a lightweight alternative for Pouch.**
+
 Data model compatible to PouchDBs experimental `indexeddb` adapter. It uses the great [pouchdb-merge](https://github.com/pouchdb/pouchdb/tree/master/packages/node_modules/pouchdb-merge) module.
 
 
@@ -23,9 +25,10 @@ Basic functionality works
 Left to do:
 * use md5 for digesting and revs and replication logs
 * implement `getDocs` and `saveDocs`
+* implement push replication
 
 ## Usage
-Place `microcouch.js` and `pouchdb-merge.js` into your served directory. Then:
+Place `microcouch.js` into your served directory. Then:
 
 ```html
 <script type=module>
@@ -39,13 +42,9 @@ Place `microcouch.js` and `pouchdb-merge.js` into your served directory. Then:
     }
   })
 
-  mc.addEventListener('change', () => console.log('local database changed'))
-
   const run = async () => {
     await mc.init()
     await mc.pull()
-    await mc.saveDoc({ _id: 'mydoc', awesome: '2000' })
-    await mc.push()
   }
 
   run()

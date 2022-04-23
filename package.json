@@ -22,14 +22,14 @@
     "url": "https://github.com/jo/microcouch-js"
   },
   "scripts": {
-    "dist": "cp ./node_modules/pouchdb-merge/lib/index.es.js pouchdb-merge.js"
+    "build": "esbuild src/Microcouch.js --bundle --format=esm --outfile=microcouch.js"
   },
   "files": [
     "microcouch.js",
-    "pouchdb-merge.js",
     "LICENSE"
   ],
   "devDependencies": {
+    "esbuild": "^0.14.38",
     "pouchdb-merge": "7.3.0"
   }
 }

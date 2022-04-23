@@ -639,7 +639,7 @@ var Local = class {
       const transaction = this.db.transaction([DOC_STORE], "readonly");
       const store = transaction.objectStore(DOC_STORE).index("seq");
       const req = store.openCursor(IDBKeyRange.lowerBound(since, true));
-      const changes = {};
+      const changes = [];
       let lastSeq = -1;
       let received = 0;
       req.onsuccess = (e) => {
@@ -648,10 +648,10 @@ var Local = class {
         }
         const cursor = e.target.result;
         const doc = cursor.value;
-        const { id, rev, seq } = doc;
+        const { id, rev, seq, deleted } = doc;
+        const change = { seq, id, changes: [{ rev }], deleted };
+        changes.push(change);
         lastSeq = seq;
-        changes[id] = changes[id] || [];
-        changes[id].push(rev);
         received++;
         if (received !== limit) {
           cursor.continue();
@@ -1019,12 +1019,8 @@ var Remote = class {
       results,
       last_seq: lastSeq
     } = await response.json();
-    const revs = {};
-    for (const { id, changes } of results) {
-      revs[id] = changes.map(({ rev }) => rev);
-    }
     return {
-      changes: revs,
+      changes: results,
       lastSeq
     };
   }
@@ -1155,8 +1151,9 @@ var Remote = class {
 };
 
 // src/Replication.js
-var CHANGES_LIMIT = 1e4;
-var DATA_BATCH_SIZE = 256;
+var INITIAL_CHANGES_LIMIT = 128;
+var CHANGES_LIMIT = 1024;
+var DATA_BATCH_SIZE = 1024;
 var generateReplicationLogId = async (localId, remoteId) => {
   const text = localId + remoteId;
   return await calculateSha1(text);
@@ -1164,29 +1161,51 @@ var generateReplicationLogId = async (localId, remoteId) => {
 var findCommonAncestor = (localLog, remoteLog) => {
   return localLog.session_id && localLog.session_id === remoteLog.session_id && localLog.source_last_seq && localLog.source_last_seq === remoteLog.source_last_seq ? localLog.source_last_seq : null;
 };
+var compareSeqs = (a, b) => {
+  if (!a)
+    return -1;
+  if (!b)
+    return 1;
+  if (a === b)
+    return 0;
+  const aInt = parseInt(a, 10);
+  const bInt = parseInt(b, 10);
+  return aInt - bInt;
+};
 var Replication = class {
   constructor(source, target) {
     this.source = source;
     this.target = target;
-    this.id = makeUuid();
-    this.diffs = [];
-    this.written = 0;
+    this.sessionId = makeUuid();
+    this.changes = [];
+    this.docsWritten = 0;
+    this.targetLog = null;
+    this.sourceLog = null;
+    this.remoteSeq = null;
+    this.startSeq = null;
+    this.lastSeq = null;
   }
   get name() {
-    return `replication ${this.id} ${this.source.constructor.name}\u2192${this.target.constructor.name}`;
+    return `Replication#${this.sessionId}(${this.source.constructor.name}\u2192${this.target.constructor.name})`;
   }
   async replicate() {
-    await this.prepare();
-    let changesDone;
-    do {
-      changesDone = await this.getDiffs();
-      this.getData();
-    } while (!changesDone);
-    await this.getData();
-    await this.finish();
-  }
-  async prepare() {
     console.time(this.name);
+    await this.getInfos();
+    if (compareSeqs(this.startSeq, this.remoteSeq) < 0) {
+      const done = await this.getChangesBatch(INITIAL_CHANGES_LIMIT);
+      if (done) {
+        await this.processChanges();
+      } else {
+        await Promise.all([
+          this.getChanges(),
+          this.processChanges()
+        ]);
+      }
+      await this.storeCheckpoints();
+    }
+    console.timeEnd(this.name);
+  }
+  async getInfos() {
     const [
       localUuid,
       remoteUuid,
@@ -1196,6 +1215,7 @@ var Replication = class {
       this.source.getUuid(),
       this.source.getUpdateSeq()
     ]);
+    this.remoteSeq = remoteSeq;
     const replicationLogId = await generateReplicationLogId(localUuid, remoteUuid);
     const [
       targetLog,
@@ -1207,43 +1227,54 @@ var Replication = class {
     this.targetLog = targetLog;
     this.sourceLog = sourceLog;
     this.startSeq = findCommonAncestor(targetLog, sourceLog);
-    this.endSeq = this.startSeq;
   }
-  async finish() {
-    if (this.endSeq !== this.startSeq) {
-      this.sourceLog.session_id = this.id;
-      this.sourceLog.source_last_seq = this.endSeq;
-      this.targetLog.session_id = this.id;
-      this.targetLog.source_last_seq = this.endSeq;
+  async storeCheckpoints() {
+    if (this.lastSeq !== this.startSeq) {
+      this.sourceLog.session_id = this.sessionId;
+      this.sourceLog.source_last_seq = this.lastSeq;
+      this.targetLog.session_id = this.sessionId;
+      this.targetLog.source_last_seq = this.lastSeq;
       await Promise.all([
         this.target.saveReplicationLog(this.targetLog),
         this.source.saveReplicationLog(this.sourceLog)
       ]);
     }
-    console.timeEnd(this.name);
   }
-  async getDiffs() {
-    const { changes, lastSeq } = await this.source.getChanges({
-      since: this.lastChangesSeq || this.startSeq,
-      limit: CHANGES_LIMIT
-    });
-    this.lastChangesSeq = lastSeq;
-    const done = Object.keys(changes).length < CHANGES_LIMIT;
-    const diffs = await this.target.getRevsDiff(changes);
-    this.diffs = this.diffs.concat(diffs);
-    return Object.keys(changes).length < CHANGES_LIMIT;
-  }
-  async getData() {
-    let diffs;
+  async getChanges() {
+    let done;
     do {
-      diffs = this.diffs.splice(0, DATA_BATCH_SIZE);
-      if (diffs.length > 0) {
-        await this.source.getRevsMultipart(diffs, async (doc) => {
-          this.written++;
-          await this.target.saveRev(doc);
-        });
-      }
-    } while (diffs.length > 0);
+      done = await this.getChangesBatch();
+    } while (!done);
+  }
+  async getChangesBatch(limit = CHANGES_LIMIT) {
+    const { changes, lastSeq } = await this.source.getChanges({
+      since: this.lastSeq || this.startSeq,
+      limit
+    });
+    this.lastSeq = lastSeq;
+    this.changes.push(...changes);
+    return compareSeqs(lastSeq, this.remoteSeq) >= 0 || changes.length < limit;
+  }
+  async processChanges() {
+    let done;
+    do {
+      done = await this.processChangesBatch();
+    } while (!done);
+  }
+  async processChangesBatch(batchSize = DATA_BATCH_SIZE) {
+    const batchOfChanges = this.changes.splice(0, batchSize);
+    const revs = {};
+    for (const { id, changes } of batchOfChanges) {
+      revs[id] = changes.map(({ rev }) => rev);
+    }
+    const diffs = await this.target.getRevsDiff(revs);
+    if (diffs.length > 0) {
+      await this.source.getRevsMultipart(diffs, async (doc) => {
+        await this.target.saveRev(doc);
+        this.docsWritten++;
+      });
+    }
+    return this.changes.length === 0;
   }
 };
 
@@ -1272,7 +1303,10 @@ var Microcouch = class extends EventTarget {
   }
   async pull() {
     const replication = new Replication(this.remote, this.local);
-    return replication.replicate();
+    await replication.replicate();
+    if (replication.docsWritten > 0) {
+      this.dispatchEvent(this.changeEvent);
+    }
   }
 };
 export {

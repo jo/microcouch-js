@@ -148,13 +148,8 @@ export default class Remote {
       last_seq: lastSeq
     } = await response.json()
     
-    const revs = {}
-    for (const { id, changes } of results) {
-      revs[id] = changes.map(({ rev }) => rev)
-    }
-
     return {
-      changes: revs, 
+      changes: results,
       lastSeq
     }
   }
@@ -260,6 +255,8 @@ export default class Remote {
     return reader.read().then(process)
   }
 
+  // get revs with inline attachments
+  // currently not used anymore
   async getRevs (revs) {
     const url = new URL(`${this.root}/_bulk_get`, this.url)
     url.searchParams.set('revs', 'true')

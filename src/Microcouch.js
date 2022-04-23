@@ -17,6 +17,7 @@ export default class Microcouch extends EventTarget {
   }
 
   init () {
+    // only local needs initializing
     return this.local.init()
   }
 
@@ -50,11 +51,10 @@ export default class Microcouch extends EventTarget {
 
   async pull () {
     const replication = new Replication(this.remote, this.local)
-    return replication.replicate()
-    // const { addedRevs } = await replicate(this.remote, this.local)
-    // if (addedRevs > 0) {
-    //   this.dispatchEvent(this.changeEvent)
-    // }
+    await replication.replicate()
+    if (replication.docsWritten > 0) {
+      this.dispatchEvent(this.changeEvent)
+    }
   }
 
   // TODO: not supported yet

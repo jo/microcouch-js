@@ -432,7 +432,7 @@ export default class Local {
       const store = transaction.objectStore(DOC_STORE).index('seq')
       const req = store.openCursor(IDBKeyRange.lowerBound(since, true))
 
-      const changes = {}
+      const changes = []
       let lastSeq = -1
       let received = 0
 
@@ -442,11 +442,11 @@ export default class Local {
         }
         const cursor = e.target.result
         const doc = cursor.value
-        const { id, rev, seq } = doc
-        lastSeq = seq
-        changes[id] = changes[id] || []
-        changes[id].push(rev)
+        const { id, rev, seq, deleted } = doc
         // TODO: handle conflicts
+        const change = { seq, id, changes: [{ rev }], deleted }
+        changes.push(change)
+        lastSeq = seq
         received++
         if (received !== limit) {
           cursor.continue()
@@ -494,6 +494,8 @@ export default class Local {
     return foundRevs
   }
 
+  // currently not used anymore
+  // used before in combination with inline attachment fetching during replication
   async saveRevs (revs) {
     const entries = []
 

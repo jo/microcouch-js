@@ -7,7 +7,8 @@
   "keywords": [
     "couchdb",
     "pouchdb",
-    "database"
+    "database",
+    "browser"
   ],
   "author": "Johannes J. Schmidt",
   "license": "Apache-2.0",
@@ -22,13 +23,16 @@
     "url": "https://github.com/jo/microcouch-js"
   },
   "scripts": {
-    "build": "esbuild src/Microcouch.js --bundle --format=esm --outfile=dist/microcouch.js"
+    "build": "esbuild src/Microcouch.js --bundle --format=esm --outfile=dist/microcouch.js",
+    "build-min": "esbuild src/Microcouch.js --bundle --minify --format=esm --outfile=dist/microcouch.min.js",
+    "build-all": "npm run build && npm run build-min"
   },
   "devDependencies": {
     "esbuild": "^0.14.38"
   },
   "dependencies": {
-    "multipart-related": "^1.0.0",
-    "pouchdb-merge": "7.3.0"
+    "multipart-related": "2.0.0",
+    "pouchdb-merge": "7.3.0",
+    "spark-md5": "^3.0.2"
   }
 }

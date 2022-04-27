@@ -1,34 +1,560 @@
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target, mod));
+
+// node_modules/spark-md5/spark-md5.js
+var require_spark_md5 = __commonJS({
+  "node_modules/spark-md5/spark-md5.js"(exports, module) {
+    (function(factory) {
+      if (typeof exports === "object") {
+        module.exports = factory();
+      } else if (typeof define === "function" && define.amd) {
+        define(factory);
+      } else {
+        var glob;
+        try {
+          glob = window;
+        } catch (e) {
+          glob = self;
+        }
+        glob.SparkMD5 = factory();
+      }
+    })(function(undefined) {
+      "use strict";
+      var add32 = function(a, b) {
+        return a + b & 4294967295;
+      }, hex_chr = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"];
+      function cmn(q, a, b, x, s, t) {
+        a = add32(add32(a, q), add32(x, t));
+        return add32(a << s | a >>> 32 - s, b);
+      }
+      function md5cycle(x, k) {
+        var a = x[0], b = x[1], c = x[2], d = x[3];
+        a += (b & c | ~b & d) + k[0] - 680876936 | 0;
+        a = (a << 7 | a >>> 25) + b | 0;
+        d += (a & b | ~a & c) + k[1] - 389564586 | 0;
+        d = (d << 12 | d >>> 20) + a | 0;
+        c += (d & a | ~d & b) + k[2] + 606105819 | 0;
+        c = (c << 17 | c >>> 15) + d | 0;
+        b += (c & d | ~c & a) + k[3] - 1044525330 | 0;
+        b = (b << 22 | b >>> 10) + c | 0;
+        a += (b & c | ~b & d) + k[4] - 176418897 | 0;
+        a = (a << 7 | a >>> 25) + b | 0;
+        d += (a & b | ~a & c) + k[5] + 1200080426 | 0;
+        d = (d << 12 | d >>> 20) + a | 0;
+        c += (d & a | ~d & b) + k[6] - 1473231341 | 0;
+        c = (c << 17 | c >>> 15) + d | 0;
+        b += (c & d | ~c & a) + k[7] - 45705983 | 0;
+        b = (b << 22 | b >>> 10) + c | 0;
+        a += (b & c | ~b & d) + k[8] + 1770035416 | 0;
+        a = (a << 7 | a >>> 25) + b | 0;
+        d += (a & b | ~a & c) + k[9] - 1958414417 | 0;
+        d = (d << 12 | d >>> 20) + a | 0;
+        c += (d & a | ~d & b) + k[10] - 42063 | 0;
+        c = (c << 17 | c >>> 15) + d | 0;
+        b += (c & d | ~c & a) + k[11] - 1990404162 | 0;
+        b = (b << 22 | b >>> 10) + c | 0;
+        a += (b & c | ~b & d) + k[12] + 1804603682 | 0;
+        a = (a << 7 | a >>> 25) + b | 0;
+        d += (a & b | ~a & c) + k[13] - 40341101 | 0;
+        d = (d << 12 | d >>> 20) + a | 0;
+        c += (d & a | ~d & b) + k[14] - 1502002290 | 0;
+        c = (c << 17 | c >>> 15) + d | 0;
+        b += (c & d | ~c & a) + k[15] + 1236535329 | 0;
+        b = (b << 22 | b >>> 10) + c | 0;
+        a += (b & d | c & ~d) + k[1] - 165796510 | 0;
+        a = (a << 5 | a >>> 27) + b | 0;
+        d += (a & c | b & ~c) + k[6] - 1069501632 | 0;
+        d = (d << 9 | d >>> 23) + a | 0;
+        c += (d & b | a & ~b) + k[11] + 643717713 | 0;
+        c = (c << 14 | c >>> 18) + d | 0;
+        b += (c & a | d & ~a) + k[0] - 373897302 | 0;
+        b = (b << 20 | b >>> 12) + c | 0;
+        a += (b & d | c & ~d) + k[5] - 701558691 | 0;
+        a = (a << 5 | a >>> 27) + b | 0;
+        d += (a & c | b & ~c) + k[10] + 38016083 | 0;
+        d = (d << 9 | d >>> 23) + a | 0;
+        c += (d & b | a & ~b) + k[15] - 660478335 | 0;
+        c = (c << 14 | c >>> 18) + d | 0;
+        b += (c & a | d & ~a) + k[4] - 405537848 | 0;
+        b = (b << 20 | b >>> 12) + c | 0;
+        a += (b & d | c & ~d) + k[9] + 568446438 | 0;
+        a = (a << 5 | a >>> 27) + b | 0;
+        d += (a & c | b & ~c) + k[14] - 1019803690 | 0;
+        d = (d << 9 | d >>> 23) + a | 0;
+        c += (d & b | a & ~b) + k[3] - 187363961 | 0;
+        c = (c << 14 | c >>> 18) + d | 0;
+        b += (c & a | d & ~a) + k[8] + 1163531501 | 0;
+        b = (b << 20 | b >>> 12) + c | 0;
+        a += (b & d | c & ~d) + k[13] - 1444681467 | 0;
+        a = (a << 5 | a >>> 27) + b | 0;
+        d += (a & c | b & ~c) + k[2] - 51403784 | 0;
+        d = (d << 9 | d >>> 23) + a | 0;
+        c += (d & b | a & ~b) + k[7] + 1735328473 | 0;
+        c = (c << 14 | c >>> 18) + d | 0;
+        b += (c & a | d & ~a) + k[12] - 1926607734 | 0;
+        b = (b << 20 | b >>> 12) + c | 0;
+        a += (b ^ c ^ d) + k[5] - 378558 | 0;
+        a = (a << 4 | a >>> 28) + b | 0;
+        d += (a ^ b ^ c) + k[8] - 2022574463 | 0;
+        d = (d << 11 | d >>> 21) + a | 0;
+        c += (d ^ a ^ b) + k[11] + 1839030562 | 0;
+        c = (c << 16 | c >>> 16) + d | 0;
+        b += (c ^ d ^ a) + k[14] - 35309556 | 0;
+        b = (b << 23 | b >>> 9) + c | 0;
+        a += (b ^ c ^ d) + k[1] - 1530992060 | 0;
+        a = (a << 4 | a >>> 28) + b | 0;
+        d += (a ^ b ^ c) + k[4] + 1272893353 | 0;
+        d = (d << 11 | d >>> 21) + a | 0;
+        c += (d ^ a ^ b) + k[7] - 155497632 | 0;
+        c = (c << 16 | c >>> 16) + d | 0;
+        b += (c ^ d ^ a) + k[10] - 1094730640 | 0;
+        b = (b << 23 | b >>> 9) + c | 0;
+        a += (b ^ c ^ d) + k[13] + 681279174 | 0;
+        a = (a << 4 | a >>> 28) + b | 0;
+        d += (a ^ b ^ c) + k[0] - 358537222 | 0;
+        d = (d << 11 | d >>> 21) + a | 0;
+        c += (d ^ a ^ b) + k[3] - 722521979 | 0;
+        c = (c << 16 | c >>> 16) + d | 0;
+        b += (c ^ d ^ a) + k[6] + 76029189 | 0;
+        b = (b << 23 | b >>> 9) + c | 0;
+        a += (b ^ c ^ d) + k[9] - 640364487 | 0;
+        a = (a << 4 | a >>> 28) + b | 0;
+        d += (a ^ b ^ c) + k[12] - 421815835 | 0;
+        d = (d << 11 | d >>> 21) + a | 0;
+        c += (d ^ a ^ b) + k[15] + 530742520 | 0;
+        c = (c << 16 | c >>> 16) + d | 0;
+        b += (c ^ d ^ a) + k[2] - 995338651 | 0;
+        b = (b << 23 | b >>> 9) + c | 0;
+        a += (c ^ (b | ~d)) + k[0] - 198630844 | 0;
+        a = (a << 6 | a >>> 26) + b | 0;
+        d += (b ^ (a | ~c)) + k[7] + 1126891415 | 0;
+        d = (d << 10 | d >>> 22) + a | 0;
+        c += (a ^ (d | ~b)) + k[14] - 1416354905 | 0;
+        c = (c << 15 | c >>> 17) + d | 0;
+        b += (d ^ (c | ~a)) + k[5] - 57434055 | 0;
+        b = (b << 21 | b >>> 11) + c | 0;
+        a += (c ^ (b | ~d)) + k[12] + 1700485571 | 0;
+        a = (a << 6 | a >>> 26) + b | 0;
+        d += (b ^ (a | ~c)) + k[3] - 1894986606 | 0;
+        d = (d << 10 | d >>> 22) + a | 0;
+        c += (a ^ (d | ~b)) + k[10] - 1051523 | 0;
+        c = (c << 15 | c >>> 17) + d | 0;
+        b += (d ^ (c | ~a)) + k[1] - 2054922799 | 0;
+        b = (b << 21 | b >>> 11) + c | 0;
+        a += (c ^ (b | ~d)) + k[8] + 1873313359 | 0;
+        a = (a << 6 | a >>> 26) + b | 0;
+        d += (b ^ (a | ~c)) + k[15] - 30611744 | 0;
+        d = (d << 10 | d >>> 22) + a | 0;
+        c += (a ^ (d | ~b)) + k[6] - 1560198380 | 0;
+        c = (c << 15 | c >>> 17) + d | 0;
+        b += (d ^ (c | ~a)) + k[13] + 1309151649 | 0;
+        b = (b << 21 | b >>> 11) + c | 0;
+        a += (c ^ (b | ~d)) + k[4] - 145523070 | 0;
+        a = (a << 6 | a >>> 26) + b | 0;
+        d += (b ^ (a | ~c)) + k[11] - 1120210379 | 0;
+        d = (d << 10 | d >>> 22) + a | 0;
+        c += (a ^ (d | ~b)) + k[2] + 718787259 | 0;
+        c = (c << 15 | c >>> 17) + d | 0;
+        b += (d ^ (c | ~a)) + k[9] - 343485551 | 0;
+        b = (b << 21 | b >>> 11) + c | 0;
+        x[0] = a + x[0] | 0;
+        x[1] = b + x[1] | 0;
+        x[2] = c + x[2] | 0;
+        x[3] = d + x[3] | 0;
+      }
+      function md5blk(s) {
+        var md5blks = [], i;
+        for (i = 0; i < 64; i += 4) {
+          md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i + 1) << 8) + (s.charCodeAt(i + 2) << 16) + (s.charCodeAt(i + 3) << 24);
+        }
+        return md5blks;
+      }
+      function md5blk_array(a) {
+        var md5blks = [], i;
+        for (i = 0; i < 64; i += 4) {
+          md5blks[i >> 2] = a[i] + (a[i + 1] << 8) + (a[i + 2] << 16) + (a[i + 3] << 24);
+        }
+        return md5blks;
+      }
+      function md51(s) {
+        var n = s.length, state = [1732584193, -271733879, -1732584194, 271733878], i, length, tail, tmp, lo, hi;
+        for (i = 64; i <= n; i += 64) {
+          md5cycle(state, md5blk(s.substring(i - 64, i)));
+        }
+        s = s.substring(i - 64);
+        length = s.length;
+        tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        for (i = 0; i < length; i += 1) {
+          tail[i >> 2] |= s.charCodeAt(i) << (i % 4 << 3);
+        }
+        tail[i >> 2] |= 128 << (i % 4 << 3);
+        if (i > 55) {
+          md5cycle(state, tail);
+          for (i = 0; i < 16; i += 1) {
+            tail[i] = 0;
+          }
+        }
+        tmp = n * 8;
+        tmp = tmp.toString(16).match(/(.*?)(.{0,8})$/);
+        lo = parseInt(tmp[2], 16);
+        hi = parseInt(tmp[1], 16) || 0;
+        tail[14] = lo;
+        tail[15] = hi;
+        md5cycle(state, tail);
+        return state;
+      }
+      function md51_array(a) {
+        var n = a.length, state = [1732584193, -271733879, -1732584194, 271733878], i, length, tail, tmp, lo, hi;
+        for (i = 64; i <= n; i += 64) {
+          md5cycle(state, md5blk_array(a.subarray(i - 64, i)));
+        }
+        a = i - 64 < n ? a.subarray(i - 64) : new Uint8Array(0);
+        length = a.length;
+        tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        for (i = 0; i < length; i += 1) {
+          tail[i >> 2] |= a[i] << (i % 4 << 3);
+        }
+        tail[i >> 2] |= 128 << (i % 4 << 3);
+        if (i > 55) {
+          md5cycle(state, tail);
+          for (i = 0; i < 16; i += 1) {
+            tail[i] = 0;
+          }
+        }
+        tmp = n * 8;
+        tmp = tmp.toString(16).match(/(.*?)(.{0,8})$/);
+        lo = parseInt(tmp[2], 16);
+        hi = parseInt(tmp[1], 16) || 0;
+        tail[14] = lo;
+        tail[15] = hi;
+        md5cycle(state, tail);
+        return state;
+      }
+      function rhex(n) {
+        var s = "", j;
+        for (j = 0; j < 4; j += 1) {
+          s += hex_chr[n >> j * 8 + 4 & 15] + hex_chr[n >> j * 8 & 15];
+        }
+        return s;
+      }
+      function hex(x) {
+        var i;
+        for (i = 0; i < x.length; i += 1) {
+          x[i] = rhex(x[i]);
+        }
+        return x.join("");
+      }
+      if (hex(md51("hello")) !== "5d41402abc4b2a76b9719d911017c592") {
+        add32 = function(x, y) {
+          var lsw = (x & 65535) + (y & 65535), msw = (x >> 16) + (y >> 16) + (lsw >> 16);
+          return msw << 16 | lsw & 65535;
+        };
+      }
+      if (typeof ArrayBuffer !== "undefined" && !ArrayBuffer.prototype.slice) {
+        (function() {
+          function clamp(val, length) {
+            val = val | 0 || 0;
+            if (val < 0) {
+              return Math.max(val + length, 0);
+            }
+            return Math.min(val, length);
+          }
+          ArrayBuffer.prototype.slice = function(from, to) {
+            var length = this.byteLength, begin = clamp(from, length), end = length, num, target, targetArray, sourceArray;
+            if (to !== undefined) {
+              end = clamp(to, length);
+            }
+            if (begin > end) {
+              return new ArrayBuffer(0);
+            }
+            num = end - begin;
+            target = new ArrayBuffer(num);
+            targetArray = new Uint8Array(target);
+            sourceArray = new Uint8Array(this, begin, num);
+            targetArray.set(sourceArray);
+            return target;
+          };
+        })();
+      }
+      function toUtf8(str) {
+        if (/[\u0080-\uFFFF]/.test(str)) {
+          str = unescape(encodeURIComponent(str));
+        }
+        return str;
+      }
+      function utf8Str2ArrayBuffer(str, returnUInt8Array) {
+        var length = str.length, buff = new ArrayBuffer(length), arr = new Uint8Array(buff), i;
+        for (i = 0; i < length; i += 1) {
+          arr[i] = str.charCodeAt(i);
+        }
+        return returnUInt8Array ? arr : buff;
+      }
+      function arrayBuffer2Utf8Str(buff) {
+        return String.fromCharCode.apply(null, new Uint8Array(buff));
+      }
+      function concatenateArrayBuffers(first, second, returnUInt8Array) {
+        var result = new Uint8Array(first.byteLength + second.byteLength);
+        result.set(new Uint8Array(first));
+        result.set(new Uint8Array(second), first.byteLength);
+        return returnUInt8Array ? result : result.buffer;
+      }
+      function hexToBinaryString(hex2) {
+        var bytes = [], length = hex2.length, x;
+        for (x = 0; x < length - 1; x += 2) {
+          bytes.push(parseInt(hex2.substr(x, 2), 16));
+        }
+        return String.fromCharCode.apply(String, bytes);
+      }
+      function SparkMD54() {
+        this.reset();
+      }
+      SparkMD54.prototype.append = function(str) {
+        this.appendBinary(toUtf8(str));
+        return this;
+      };
+      SparkMD54.prototype.appendBinary = function(contents) {
+        this._buff += contents;
+        this._length += contents.length;
+        var length = this._buff.length, i;
+        for (i = 64; i <= length; i += 64) {
+          md5cycle(this._hash, md5blk(this._buff.substring(i - 64, i)));
+        }
+        this._buff = this._buff.substring(i - 64);
+        return this;
+      };
+      SparkMD54.prototype.end = function(raw) {
+        var buff = this._buff, length = buff.length, i, tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ret;
+        for (i = 0; i < length; i += 1) {
+          tail[i >> 2] |= buff.charCodeAt(i) << (i % 4 << 3);
+        }
+        this._finish(tail, length);
+        ret = hex(this._hash);
+        if (raw) {
+          ret = hexToBinaryString(ret);
+        }
+        this.reset();
+        return ret;
+      };
+      SparkMD54.prototype.reset = function() {
+        this._buff = "";
+        this._length = 0;
+        this._hash = [1732584193, -271733879, -1732584194, 271733878];
+        return this;
+      };
+      SparkMD54.prototype.getState = function() {
+        return {
+          buff: this._buff,
+          length: this._length,
+          hash: this._hash.slice()
+        };
+      };
+      SparkMD54.prototype.setState = function(state) {
+        this._buff = state.buff;
+        this._length = state.length;
+        this._hash = state.hash;
+        return this;
+      };
+      SparkMD54.prototype.destroy = function() {
+        delete this._hash;
+        delete this._buff;
+        delete this._length;
+      };
+      SparkMD54.prototype._finish = function(tail, length) {
+        var i = length, tmp, lo, hi;
+        tail[i >> 2] |= 128 << (i % 4 << 3);
+        if (i > 55) {
+          md5cycle(this._hash, tail);
+          for (i = 0; i < 16; i += 1) {
+            tail[i] = 0;
+          }
+        }
+        tmp = this._length * 8;
+        tmp = tmp.toString(16).match(/(.*?)(.{0,8})$/);
+        lo = parseInt(tmp[2], 16);
+        hi = parseInt(tmp[1], 16) || 0;
+        tail[14] = lo;
+        tail[15] = hi;
+        md5cycle(this._hash, tail);
+      };
+      SparkMD54.hash = function(str, raw) {
+        return SparkMD54.hashBinary(toUtf8(str), raw);
+      };
+      SparkMD54.hashBinary = function(content, raw) {
+        var hash = md51(content), ret = hex(hash);
+        return raw ? hexToBinaryString(ret) : ret;
+      };
+      SparkMD54.ArrayBuffer = function() {
+        this.reset();
+      };
+      SparkMD54.ArrayBuffer.prototype.append = function(arr) {
+        var buff = concatenateArrayBuffers(this._buff.buffer, arr, true), length = buff.length, i;
+        this._length += arr.byteLength;
+        for (i = 64; i <= length; i += 64) {
+          md5cycle(this._hash, md5blk_array(buff.subarray(i - 64, i)));
+        }
+        this._buff = i - 64 < length ? new Uint8Array(buff.buffer.slice(i - 64)) : new Uint8Array(0);
+        return this;
+      };
+      SparkMD54.ArrayBuffer.prototype.end = function(raw) {
+        var buff = this._buff, length = buff.length, tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], i, ret;
+        for (i = 0; i < length; i += 1) {
+          tail[i >> 2] |= buff[i] << (i % 4 << 3);
+        }
+        this._finish(tail, length);
+        ret = hex(this._hash);
+        if (raw) {
+          ret = hexToBinaryString(ret);
+        }
+        this.reset();
+        return ret;
+      };
+      SparkMD54.ArrayBuffer.prototype.reset = function() {
+        this._buff = new Uint8Array(0);
+        this._length = 0;
+        this._hash = [1732584193, -271733879, -1732584194, 271733878];
+        return this;
+      };
+      SparkMD54.ArrayBuffer.prototype.getState = function() {
+        var state = SparkMD54.prototype.getState.call(this);
+        state.buff = arrayBuffer2Utf8Str(state.buff);
+        return state;
+      };
+      SparkMD54.ArrayBuffer.prototype.setState = function(state) {
+        state.buff = utf8Str2ArrayBuffer(state.buff, true);
+        return SparkMD54.prototype.setState.call(this, state);
+      };
+      SparkMD54.ArrayBuffer.prototype.destroy = SparkMD54.prototype.destroy;
+      SparkMD54.ArrayBuffer.prototype._finish = SparkMD54.prototype._finish;
+      SparkMD54.ArrayBuffer.hash = function(arr, raw) {
+        var hash = md51_array(new Uint8Array(arr)), ret = hex(hash);
+        return raw ? hexToBinaryString(ret) : ret;
+      };
+      return SparkMD54;
+    });
+  }
+});
+
 // src/utils.js
+var import_spark_md5 = __toESM(require_spark_md5(), 1);
+var MD5_CHUNK_SIZE = 32768;
+var calculateMd5 = async (blob) => {
+  const chunkSize = Math.min(MD5_CHUNK_SIZE, blob.size);
+  const chunks = Math.ceil(blob.size / chunkSize);
+  const md5 = new import_spark_md5.default.ArrayBuffer();
+  for (let i = 0; i < chunks; i++) {
+    const part = blob.slice(i * chunkSize, (i + 1) * chunkSize);
+    const arrayBuffer = await part.arrayBuffer();
+    md5.append(arrayBuffer);
+  }
+  return md5.end(true);
+};
 var makeUuid = () => {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 };
-var encodeHex = (data) => Array.from(new Uint8Array(data)).map((x) => ("00" + x.toString(16)).slice(-2)).join("");
-var calculateSha1 = async (text) => {
-  const enc = new TextEncoder();
-  const bits = enc.encode(text);
-  const data = await crypto.subtle.digest("SHA-1", bits);
-  return encodeHex(data);
-};
-var base64ToBlob = (data, type) => {
-  const raw = atob(data);
-  const length = raw.length;
-  const uInt8Array = new Uint8Array(length);
-  for (let i = 0; i < length; ++i) {
-    uInt8Array[i] = raw.charCodeAt(i);
+
+// src/local/GetDiffsTransformStream.js
+var GetDiffs = class {
+  constructor(db, { batchSize }) {
+    this.db = db;
+    this.batchSize = batchSize;
+    this.onDiff = null;
+    this.onClose = null;
+    this.changes = [];
   }
-  return new Blob([uInt8Array], { type });
+  addChange(change) {
+    this.changes.push(change);
+    return this.processDiffs();
+  }
+  close() {
+    return this.processDiffs(true);
+  }
+  async getDiff(changes) {
+    return new Promise((resolve, reject) => {
+      const store = this.db.getDocStore("readonly");
+      const revs = [];
+      let cnt = Object.keys(changes).length;
+      for (const id in changes) {
+        store.get(id).onsuccess = (e) => {
+          cnt--;
+          const entry = e.target.result;
+          for (const rev of changes[id]) {
+            const isPresent = entry && rev in entry.revs;
+            if (!isPresent) {
+              revs.push({ id, rev });
+            }
+          }
+          if (cnt === 0) {
+            resolve(revs);
+          }
+        };
+      }
+    });
+  }
+  async processDiffs(flush) {
+    if (!flush && this.changes.length < this.batchSize)
+      return;
+    if (this.changes.length === 0) {
+      if (flush)
+        this.onClose();
+      return;
+    }
+    let batch = [];
+    do {
+      batch = this.changes.splice(0, this.batchSize);
+      if (batch.length > 0) {
+        const revs = {};
+        for (const { id, changes } of batch) {
+          revs[id] = changes.map(({ rev }) => rev);
+        }
+        const diff = await this.getDiff(revs);
+        for (const rev of diff) {
+          this.onDiff(rev);
+        }
+      }
+    } while (batch.length === this.batchSize);
+    if (flush)
+      this.onClose();
+  }
 };
-var blobToBase64 = (blob) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dec = `data:${blob.type};base64,`;
-      const data = reader.result.slice(dec.length);
-      resolve(data);
-    };
-    reader.readAsDataURL(blob);
-  });
+var GetDiffsTransformStream = class {
+  constructor(db, { batchSize }) {
+    const revsDiffsGetter = new GetDiffs(db, { batchSize });
+    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
+    this.readable = new ReadableStream({
+      start(controller) {
+        revsDiffsGetter.onDiff = (diff) => controller.enqueue(diff);
+        revsDiffsGetter.onClose = () => controller.close();
+      }
+    });
+    this.writable = new WritableStream({
+      write(change) {
+        return revsDiffsGetter.addChange(change);
+      },
+      close() {
+        return revsDiffsGetter.close();
+      }
+    }, queueingStrategy);
+  }
 };
+
+// src/local/model.js
+var import_spark_md52 = __toESM(require_spark_md5(), 1);
 
 // node_modules/pouchdb-merge/lib/index.es.js
 function winningRev(metadata) {
@@ -288,28 +814,10 @@ function merge(tree, path, depth) {
   };
 }
 
-// src/Local.js
-var DOC_STORE = "docs";
-var META_STORE = "meta";
+// src/local/model.js
 var REVS_LIMIT = 1e3;
 var STATUS_AVAILABLE = { status: "available" };
 var STATUS_MISSING = { status: "missing" };
-var encodeBase64 = (data) => btoa(String.fromCharCode(...new Uint8Array(data)));
-var makeRev = (doc) => {
-  const data = {};
-  for (const key in doc) {
-    if (key !== "_attachments" && key.startsWith("_"))
-      continue;
-    data[key] = doc[key];
-  }
-  return calculateSha1(JSON.stringify(data));
-};
-var calculateDigest = async (blob) => {
-  const bits = await blob.arrayBuffer();
-  const data = await crypto.subtle.digest("SHA-1", bits);
-  const sha1 = encodeBase64(data);
-  return `sha1-${sha1}`;
-};
 var parseRev = (rev) => {
   const [prefix, id] = rev.split("-");
   return [
@@ -337,19 +845,50 @@ var revisionsToRevTree = (revisions) => {
     ids
   }];
 };
-var revTreeToRevisions = (revTree) => {
-  const [{ pos, ids }] = revTree;
-  const revisions = { start: pos - 1, ids: [] };
-  let [id, status, childs] = ids;
-  while (childs) {
-    revisions.start += 1;
-    revisions.ids.unshift(id);
-    const child = childs[0] || [];
-    id = child[0];
-    status = child[1];
-    childs = child[2];
+var calculateDigest = async (blob) => {
+  const hash = await calculateMd5(blob);
+  const md5 = btoa(hash);
+  return `md5-${md5}`;
+};
+var makeRev = (doc) => {
+  const data = {};
+  for (const key in doc) {
+    if (key === "_revisions")
+      continue;
+    data[key] = doc[key];
   }
-  return revisions;
+  const string = JSON.stringify(data);
+  return import_spark_md52.default.hash(string);
+};
+var updateAttachmentsEntry = async (newAttachments, attachments, rev) => {
+  if (!newAttachments)
+    return attachments;
+  for (const name in newAttachments) {
+    const attachment = newAttachments[name];
+    const { stub } = attachment;
+    if (stub) {
+      const { digest: stubDigest } = attachment;
+      attachments[stubDigest].revs[rev] = true;
+    } else {
+      const {
+        content_type,
+        data
+      } = attachment;
+      if (typeof data === "string") {
+        throw new Error("Base64 attachments are not supported");
+      }
+      const digest = attachment.digest || await calculateDigest(data);
+      attachment.digest = digest;
+      attachment.revpos = parseInt(rev, 10);
+      attachments[digest] = {
+        data,
+        revs: {
+          [rev]: true
+        }
+      };
+    }
+  }
+  return attachments;
 };
 var docToData = (doc) => {
   const data = {};
@@ -372,34 +911,6 @@ var docToData = (doc) => {
     }
   }
   return data;
-};
-var updateAttachmentsEntry = async (newAttachments, attachments, rev) => {
-  if (!newAttachments)
-    return attachments;
-  for (const name in newAttachments) {
-    const attachment = newAttachments[name];
-    const { stub } = attachment;
-    if (stub) {
-      const { digest: stubDigest } = attachment;
-      attachments[stubDigest].revs[rev] = true;
-    } else {
-      const {
-        content_type,
-        data
-      } = attachment;
-      const blob = typeof data === "string" ? base64ToBlob(data, content_type) : data;
-      const digest = attachment.digest || await calculateDigest(blob);
-      attachment.digest = digest;
-      attachment.revpos = parseInt(rev, 10);
-      attachments[digest] = {
-        data: blob,
-        revs: {
-          [rev]: true
-        }
-      };
-    }
-  }
-  return attachments;
 };
 var docToEntry = async (seq, doc, existingEntry, { newEdits } = { newEdits: true }) => {
   let newRevTree;
@@ -469,95 +980,123 @@ var docToEntry = async (seq, doc, existingEntry, { newEdits } = { newEdits: true
     seq
   };
 };
-var entryToDoc = async (entry, rev, { base64 } = {}) => {
-  const { id, attachments, revs, rev_tree } = entry;
-  const { data } = revs[rev];
-  const { _attachments } = data;
-  const revisions = revTreeToRevisions(rev_tree);
-  if (_attachments) {
-    for (const name in _attachments) {
-      const attachment = _attachments[name];
-      const { digest } = attachment;
-      const { data: data2 } = attachments[digest];
-      attachment.content_type = data2.type;
-      if (base64) {
-        attachment.data = await blobToBase64(data2);
+
+// src/local/SaveDocsWritableStream.js
+var DocsWriter = class {
+  constructor(db, { batchSize }) {
+    this.db = db;
+    this.batchSize = batchSize;
+    this.docs = [];
+    this.docsWritten = 0;
+  }
+  add(doc) {
+    this.docs.push(doc);
+    return this.processBatch();
+  }
+  close() {
+    return this.processBatch(true);
+  }
+  async getExistingEntries(docs) {
+    return new Promise((resolve, reject) => {
+      const readDocStore = this.db.getDocStore("readonly");
+      let cnt = docs.length;
+      const items = [];
+      for (const doc of docs) {
+        const item = { doc };
+        readDocStore.get(doc._id).onsuccess = async (e) => {
+          cnt--;
+          item.existingEntry = e.target.result;
+          items.push(item);
+          if (cnt === 0) {
+            resolve(items);
+          }
+        };
+      }
+    });
+  }
+  async buildEntries(docsWithEntries, metadata) {
+    const entries = [];
+    for (const { doc, existingEntry } of docsWithEntries) {
+      const seq = ++metadata.seq;
+      const entry = await docToEntry(seq, doc, existingEntry, { newEdits: false });
+      let delta;
+      const { deleted } = entry;
+      if (existingEntry) {
+        if (existingEntry.deleted) {
+          delta = deleted ? 0 : 1;
+        } else {
+          delta = deleted ? -1 : 0;
+        }
       } else {
-        attachment.data = data2;
+        delta = deleted ? 0 : 1;
       }
-      attachment.length = data2.size;
+      metadata.doc_count += delta;
+      entries.push(entry);
     }
-  }
-  return {
-    _id: id,
-    _rev: rev,
-    _revisions: revisions,
-    ...data
-  };
-};
-var openDatabase = (id) => new Promise((resolve, reject) => {
-  const openReq = indexedDB.open(id);
-  openReq.onupgradeneeded = (e) => {
-    const db = e.target.result;
-    const keyPath = "id";
-    const docStore = db.createObjectStore(DOC_STORE, { keyPath });
-    docStore.createIndex("seq", "seq", { unique: true });
-    db.createObjectStore(META_STORE, { keyPath });
-  };
-  openReq.onsuccess = (e) => {
-    const db = e.target.result;
-    db.onabort = () => db.close();
-    db.onversionchange = () => db.close();
-    let metadata;
-    const transaction = db.transaction([META_STORE], "readwrite");
-    transaction.oncomplete = () => resolve({ db, metadata });
-    const metaStore = transaction.objectStore(META_STORE);
-    metaStore.get(META_STORE).onsuccess = (e2) => {
-      metadata = e2.target.result || { id: META_STORE };
-      let changed = false;
-      if (!("doc_count" in metadata)) {
-        changed = true;
-        metadata.doc_count = 0;
-      }
-      if (!("seq" in metadata)) {
-        changed = true;
-        metadata.seq = 0;
-      }
-      if (!("db_uuid" in metadata)) {
-        changed = true;
-        metadata.db_uuid = makeUuid();
-      }
-      if (changed) {
-        metaStore.put(metadata);
-      }
+    return {
+      entries,
+      metadata
     };
-  };
-  openReq.onerror = (e) => reject(e.target.error);
-  openReq.onblocked = (e) => reject(e);
-});
-var getEntry = (transaction, id) => new Promise((resolve, reject) => {
-  transaction.objectStore(DOC_STORE).get(id).onsuccess = (e) => {
-    const doc = e.target.result;
-    resolve(doc);
-  };
-});
-var getEntries = async (transaction, ids) => {
-  const result = await Promise.all(ids.map((id) => getEntry(transaction, id)));
-  const docs = {};
-  for (const doc of result) {
-    if (doc) {
-      docs[doc.id] = doc;
-    }
   }
-  return docs;
+  async saveEntries(entries, { seq, doc_count }) {
+    return new Promise((resolve, reject) => {
+      const { docStore, metaStore } = this.db.getStores("readwrite");
+      let cnt = entries.length;
+      for (const entry of entries) {
+        docStore.put(entry).onsuccess = () => {
+          this.docsWritten++;
+          cnt--;
+          if (cnt === 0) {
+            this.db.metadata.seq = seq;
+            this.db.metadata.doc_count = doc_count;
+            metaStore.put(this.db.metadata).onsuccess = () => resolve();
+          }
+        };
+      }
+    });
+  }
+  async saveDocs(docs) {
+    const stats = {
+      docsWritten: 0
+    };
+    const docsWithEntries = await this.getExistingEntries(docs);
+    const { seq, doc_count } = this.db.metadata;
+    const { entries, metadata } = await this.buildEntries(docsWithEntries, { seq, doc_count });
+    return this.saveEntries(entries, metadata);
+  }
+  async processBatch(flush) {
+    if (!flush && this.docs.length < this.batchSize)
+      return;
+    if (this.docs.length === 0) {
+      return;
+    }
+    let batch = [];
+    do {
+      batch = this.docs.splice(0, this.batchSize);
+      if (batch.length > 0) {
+        await this.saveDocs(batch);
+      }
+    } while (batch.length === this.batchSize);
+  }
 };
-var saveEntry = (transaction, doc) => new Promise((resolve, reject) => {
-  transaction.objectStore(DOC_STORE).put(doc).onsuccess = () => resolve();
-});
-var saveEntries = (transaction, docs) => Promise.all(docs.map((doc) => saveEntry(transaction, doc)));
-var saveMetadata = (transaction, metadata) => new Promise((resolve, reject) => {
-  transaction.objectStore(META_STORE).put(metadata).onsuccess = () => resolve();
-});
+var SaveDocsWritableStream = class {
+  constructor(db, { batchSize }) {
+    this.docsWriter = new DocsWriter(db, { batchSize });
+  }
+  get docsWritten() {
+    return this.docsWriter.docsWritten;
+  }
+  write(doc) {
+    return this.docsWriter.add(doc);
+  }
+  close() {
+    return this.docsWriter.close();
+  }
+};
+
+// src/local/Local.js
+var DOC_STORE = "docs";
+var META_STORE = "meta";
 var Local = class {
   constructor({ name }) {
     this.name = name;
@@ -565,9 +1104,68 @@ var Local = class {
     this.metadata = null;
   }
   async init() {
-    const { db, metadata } = await openDatabase(this.name);
-    this.db = db;
-    this.metadata = metadata;
+    if (this.db)
+      return;
+    return new Promise((resolve, reject) => {
+      const openReq = indexedDB.open(this.name);
+      openReq.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        const keyPath = "id";
+        const docStore = db.createObjectStore(DOC_STORE, { keyPath });
+        docStore.createIndex("seq", "seq", { unique: true });
+        db.createObjectStore(META_STORE, { keyPath });
+      };
+      openReq.onsuccess = (e) => {
+        this.db = e.target.result;
+        this.db.onabort = () => this.db.close();
+        this.db.onversionchange = () => this.db.close();
+        const transaction = this.db.transaction(META_STORE, "readwrite");
+        transaction.oncomplete = () => resolve();
+        const metaStore = transaction.objectStore(META_STORE);
+        metaStore.get(META_STORE).onsuccess = (e2) => {
+          this.metadata = e2.target.result || { id: META_STORE };
+          let changed = false;
+          if (!("doc_count" in this.metadata)) {
+            changed = true;
+            this.metadata.doc_count = 0;
+          }
+          if (!("seq" in this.metadata)) {
+            changed = true;
+            this.metadata.seq = 0;
+          }
+          if (!("db_uuid" in this.metadata)) {
+            changed = true;
+            this.metadata.db_uuid = makeUuid();
+          }
+          if (changed) {
+            metaStore.put(this.metadata);
+          }
+        };
+      };
+      openReq.onerror = (e) => reject(e.target.error);
+      openReq.onblocked = (e) => reject(e);
+    });
+  }
+  getDocStore(mode) {
+    return this.db.transaction(DOC_STORE, mode).objectStore(DOC_STORE);
+  }
+  getStores(mode) {
+    const transaction = this.db.transaction([DOC_STORE, META_STORE], mode);
+    return {
+      docStore: transaction.objectStore(DOC_STORE),
+      metaStore: transaction.objectStore(META_STORE)
+    };
+  }
+  destroy() {
+    return new Promise((resolve, reject) => {
+      this.db.close();
+      const req = indexedDB.deleteDatabase(this.name);
+      req.onsuccess = () => {
+        this.db = null;
+        this.metadata = null;
+        resolve();
+      };
+    });
   }
   getUuid() {
     const { db_uuid } = this.metadata;
@@ -577,167 +1175,129 @@ var Local = class {
     const { seq } = this.metadata;
     return seq;
   }
-  async getEntry(id) {
-    const transaction = this.db.transaction([DOC_STORE], "readonly");
-    return getEntry(transaction, id);
-  }
-  async getDoc(id) {
-    const transaction = this.db.transaction([DOC_STORE], "readonly");
-    const entry = await getEntry(transaction, id);
-    if (!entry) {
-      throw new Error(`Could not find doc with id '${id}'`);
-    }
-    const { deleted, rev } = entry;
-    if (deleted) {
-      throw new Error(`Doc with id '${id}' has been deleted`);
-    }
-    return entryToDoc(entry, rev);
-  }
-  async saveDoc(doc) {
-    const { _id: id } = doc;
-    const getEntriesTransaction = this.db.transaction([DOC_STORE], "readonly");
-    const existingEntry = await getEntry(getEntriesTransaction, id);
-    const seq = ++this.metadata.seq;
-    let delta;
-    const entry = await docToEntry(seq, doc, existingEntry);
-    if (existingEntry) {
-      if (existingEntry.deleted) {
-        delta = entry.deleted ? 0 : 1;
-      } else {
-        delta = entry.deleted ? -1 : 0;
-      }
-    } else {
-      delta = entry.deleted ? 0 : 1;
-    }
-    this.metadata.doc_count += delta;
-    const transaction = this.db.transaction([DOC_STORE, META_STORE], "readwrite");
-    await saveEntry(transaction, entry);
-    await saveMetadata(transaction, this.metadata);
-  }
   async getReplicationLog(id) {
-    const transaction = this.db.transaction([DOC_STORE], "readonly");
-    const log = await getEntry(transaction, `_local/${id}`);
-    if (log) {
-      return log.data;
-    }
-    return {
-      _id: `_local/${id}`
-    };
-  }
-  async saveReplicationLog(log) {
-    const transaction = this.db.transaction([DOC_STORE], "readwrite");
-    const doc = {
-      id: log._id,
-      data: log
-    };
-    return saveEntry(transaction, doc);
-  }
-  async getChanges({ since, limit } = {}) {
-    since = since || -1;
-    limit = limit || -1;
+    const _id = `_local/${id}`;
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([DOC_STORE], "readonly");
-      const store = transaction.objectStore(DOC_STORE).index("seq");
-      const req = store.openCursor(IDBKeyRange.lowerBound(since, true));
-      const changes = [];
-      let lastSeq = -1;
-      let received = 0;
-      req.onsuccess = (e) => {
-        if (!e.target.result) {
-          return;
-        }
-        const cursor = e.target.result;
-        const doc = cursor.value;
-        const { id, rev, seq, deleted } = doc;
-        const change = { seq, id, changes: [{ rev }], deleted };
-        changes.push(change);
-        lastSeq = seq;
-        received++;
-        if (received !== limit) {
-          cursor.continue();
-        }
+      this.getDocStore("readonly").get(_id).onsuccess = (e) => {
+        const entry = e.target.result;
+        const doc = entry ? entry.data : { _id };
+        resolve(doc);
       };
-      transaction.oncomplete = () => resolve({ changes, lastSeq });
     });
   }
-  async getRevsDiff(changes) {
-    const ids = Object.keys(changes);
-    const transaction = this.db.transaction([DOC_STORE], "readonly");
-    const existingEntries = await getEntries(transaction, ids);
-    const revs = [];
-    for (const id in changes) {
-      for (const rev of changes[id]) {
-        const existingEntry = existingEntries[id];
-        const existingRev = existingEntry && rev in existingEntry.revs;
-        if (existingRev)
-          continue;
-        revs.push({ id, rev });
-      }
-    }
-    return revs;
+  async saveReplicationLog(doc) {
+    doc._rev = doc._rev ? doc._rev + 1 : 1;
+    return new Promise((resolve, reject) => {
+      const entry = {
+        id: doc._id,
+        data: doc
+      };
+      this.getDocStore("readwrite").put(entry).onsuccess = () => resolve({ rev: doc._rev });
+    });
   }
-  async getRevs(revs) {
-    const ids = revs.map(({ id }) => id);
-    const transaction = this.db.transaction([DOC_STORE], "readonly");
-    const existingEntries = await getEntries(transaction, ids);
-    const foundRevs = [];
-    for (const { id, rev } of revs) {
-      if (id in existingEntries) {
-        const entry = existingEntries[id];
-        if (rev in entry.revs) {
-          const doc = await entryToDoc(entry, rev, { base64: true });
-          foundRevs.push(doc);
-        }
-      }
-    }
-    return foundRevs;
+  async getChangesStream(since, { limit } = {}) {
+    throw new Error("Not supported for Local yet");
   }
-  async saveRevs(revs) {
-    const entries = [];
-    const ids = revs.map(({ _id }) => _id);
-    const getEntriesTransaction = this.db.transaction([DOC_STORE], "readonly");
-    const existingEntries = await getEntries(getEntriesTransaction, ids);
-    for (const rev of revs) {
-      const seq = ++this.metadata.seq;
-      let delta;
-      const existingEntry = existingEntries[rev._id];
-      const entry = await docToEntry(seq, rev, existingEntry, { newEdits: false });
-      entries.push(entry);
-      if (existingEntry) {
-        if (existingEntry.deleted) {
-          delta = entry.deleted ? 0 : 1;
-        } else {
-          delta = entry.deleted ? -1 : 0;
-        }
-      } else {
-        delta = entry.deleted ? 0 : 1;
-      }
-      this.metadata.doc_count += delta;
-    }
-    const transaction = this.db.transaction([DOC_STORE, META_STORE], "readwrite");
-    await saveEntries(transaction, entries);
-    await saveMetadata(transaction, this.metadata);
+  get lastSeq() {
+    throw new Error("Not supported for Local yet");
   }
-  async saveRev(rev) {
-    const { _id } = rev;
-    const getEntryTransaction = this.db.transaction([DOC_STORE], "readonly");
-    const existingEntry = await getEntry(getEntryTransaction, _id);
-    const seq = ++this.metadata.seq;
-    let delta;
-    const entry = await docToEntry(seq, rev, existingEntry, { newEdits: false });
-    if (existingEntry) {
-      if (existingEntry.deleted) {
-        delta = entry.deleted ? 0 : 1;
-      } else {
-        delta = entry.deleted ? -1 : 0;
-      }
-    } else {
-      delta = entry.deleted ? 0 : 1;
+  getDiffsStream({ batchSize } = { batchSize: 128 }) {
+    return new GetDiffsTransformStream(this, { batchSize });
+  }
+  getDocsStream({ batchSize } = { batchSize: 512 }) {
+    throw new Error("Not supported for Local yet");
+  }
+  get docsRead() {
+    throw new Error("Not supported for Local yet");
+  }
+  writeDocsStream({ batchSize } = { batchSize: 128 }) {
+    this.saveStream = new SaveDocsWritableStream(this, { batchSize });
+    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
+    return new WritableStream(this.saveStream, queueingStrategy);
+  }
+  get docsWritten() {
+    return this.saveStream && this.saveStream.docsWritten;
+  }
+};
+
+// src/remote/ChangesParserTransformStream.js
+var nextSplitPosition = (data, offset = 0) => {
+  if (offset > data.length + 4)
+    return [-1];
+  for (let i = offset; i < data.length; i++) {
+    if (data[i] === 125 && data[i + 1] === 44 && data[i + 2] === 13 && data[i + 3] === 10 && data[i + 4] === 123)
+      return [i];
+    if (data[i] === 10 && data[i + 1] === 93 && data[i + 2] === 44)
+      return [i, true];
+  }
+  return [-1];
+};
+var ChangesUnpacker = class {
+  constructor() {
+    this.data = new Uint8Array(0);
+    this.onChange = null;
+    this.onClose = null;
+    this.decoder = new TextDecoder();
+    this.startParsed = false;
+    this.lastSeq = null;
+    this.numberOfChanges = 0;
+  }
+  addBinaryData(uint8Array) {
+    const newData = new Uint8Array(this.data.length + uint8Array.length);
+    newData.set(this.data, 0);
+    newData.set(uint8Array, this.data.length);
+    this.data = newData;
+    this.checkforChanges();
+  }
+  checkforChanges() {
+    if (!this.startParsed) {
+      this.data = this.data.slice(13);
+      this.startParsed = true;
     }
-    this.metadata.doc_count += delta;
-    const transaction = this.db.transaction([DOC_STORE, META_STORE], "readwrite");
-    await saveEntry(transaction, entry);
-    await saveMetadata(transaction, this.metadata);
+    let change;
+    do {
+      change = null;
+      const [endPosition, endReached] = nextSplitPosition(this.data);
+      if (endPosition === -1)
+        continue;
+      if (endPosition > 0) {
+        const json = this.decoder.decode(this.data.slice(0, endPosition + 1));
+        change = JSON.parse(json);
+        this.onChange(change);
+        this.numberOfChanges++;
+      }
+      if (endReached) {
+        const rest = this.decoder.decode(this.data.slice(endPosition + 4));
+        const { last_seq } = JSON.parse(`{${rest}`);
+        this.lastSeq = last_seq;
+        return this.onClose();
+      }
+      this.data = this.data.slice(endPosition + 4);
+    } while (change);
+  }
+};
+var ChangesParserTransformStream = class {
+  constructor() {
+    const unpacker = new ChangesUnpacker();
+    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
+    this.readable = new ReadableStream({
+      start(controller) {
+        unpacker.onChange = (change) => controller.enqueue(change);
+        unpacker.onClose = () => controller.close();
+      }
+    });
+    this.writable = new WritableStream({
+      write(uint8Array) {
+        unpacker.addBinaryData(uint8Array);
+      }
+    }, queueingStrategy);
+    this.unpacker = unpacker;
+  }
+  get lastSeq() {
+    return this.unpacker.lastSeq;
+  }
+  get numberOfChanges() {
+    return this.unpacker.numberOfChanges;
   }
 };
 
@@ -802,17 +1362,19 @@ var MultipartRelatedParser = class {
   constructor(contentType) {
     this.encoder = new TextEncoder();
     this.decoder = new TextDecoder();
+    const boundary = this.parseContentType(contentType);
+    this.id = boundary.id;
     this.boundaries = [
-      this.parseContentType(contentType)
+      boundary
     ];
   }
   parseContentType(contentType) {
-    const [_, type, boundaryString] = contentType.match(/^([^;]+);\s*boundary="?([^="]+)"?/) || [];
+    const [_, type, id] = contentType.match(/^([^;]+);\s*boundary="?([^="]+)"?/) || [];
     if (type !== "multipart/related")
       return;
-    const boundary = this.encoder.encode(boundaryString);
+    const boundary = this.encoder.encode(id);
     return {
-      id: boundaryString,
+      id,
       boundary
     };
   }
@@ -836,26 +1398,25 @@ var MultipartRelatedParser = class {
     const { "Content-Type": contentType } = headers;
     if (!contentType)
       return null;
+    const { "Content-Length": contentLength } = headers;
+    const contentEndPosition = contentLength ? firstBoundaryPosition(data, boundary, contentLength + contentPosition + 6) : firstBoundaryPosition(data, boundary, contentPosition + 4);
+    if (contentEndPosition === -1)
+      return null;
+    if (data.length < contentEndPosition)
+      return null;
     const childBoundary = this.parseContentType(contentType);
     if (childBoundary) {
       this.boundaries.push(childBoundary);
       return this.parsePart(data.slice(contentPosition + 4));
     }
-    const { "Content-Length": contentLength } = headers;
-    const contentEndPosition = contentLength ? firstBoundaryPosition(data, boundary, contentLength + contentPosition + 6) : firstBoundaryPosition(data, boundary, contentPosition + 4);
-    if (contentEndPosition === -1)
-      return null;
-    if (data.length < contentEndPosition - 2)
-      return null;
     const isBoundaryEnd = startsWithBoundaryEnd(data, boundary, contentEndPosition);
     const endPosition = isBoundaryEnd ? contentEndPosition + boundary.length + 6 : contentEndPosition;
-    const related = this.boundaries.length > 1 ? id : null;
     if (isBoundaryEnd)
       this.boundaries.pop();
     const partData = data.slice(contentPosition + 4, contentEndPosition - 2);
     const rest = data.slice(endPosition);
     return {
-      related,
+      boundary: this.id === id ? null : id,
       headers,
       data: partData,
       rest
@@ -881,10 +1442,10 @@ var MultipartRelated = class {
     do {
       part = this.parser.parsePart(this.data);
       if (part) {
-        const { related, headers, data, rest } = part;
+        const { boundary, headers, data, rest } = part;
         this.data = rest;
         parts.push({
-          related,
+          boundary,
           headers,
           data
         });
@@ -894,12 +1455,174 @@ var MultipartRelated = class {
   }
 };
 
-// src/Remote.js
+// src/remote/GetDocsTransformStream.js
+var gunzip = (blob, type) => {
+  const ds = new DecompressionStream("gzip");
+  const decompressedStream = blob.stream().pipeThrough(ds);
+  const responseOptions = {
+    headers: {
+      "Content-Type": type
+    }
+  };
+  return new Response(decompressedStream, responseOptions).blob();
+};
+var DocsGetter = class {
+  constructor(db, { batchSize }) {
+    this.db = db;
+    this.batchSize = batchSize;
+    this.decoder = new TextDecoder();
+    this.onDoc = null;
+    this.onClose = null;
+    this.revs = [];
+    this.docsRead = 0;
+  }
+  addRev(rev) {
+    this.revs.push(rev);
+    return this.getDocs();
+  }
+  close() {
+    return this.getDocs(true);
+  }
+  async getDocs(flush) {
+    if (!flush && this.revs.length < this.batchSize)
+      return;
+    if (this.revs.length === 0) {
+      if (flush)
+        this.onClose();
+      return;
+    }
+    let batch = [];
+    do {
+      batch = this.revs.splice(0, this.batchSize);
+      if (batch.length > 0) {
+        await this.processBatch(batch);
+      }
+    } while (batch.length === this.batchSize);
+    if (flush)
+      this.onClose();
+  }
+  async processBatch(batch) {
+    const response = await this.getDocsMultipart(batch);
+    const contentType = response.headers.get("Content-Type");
+    const parser = new MultipartRelated(contentType);
+    const reader = response.body.getReader();
+    let batchComplete = false;
+    let currentParts = [];
+    let currentBoundary = null;
+    do {
+      const { done, value } = await reader.read();
+      const parts = parser.read(value);
+      for (const part of parts) {
+        if (!part.boundary) {
+          await this.emitDoc(currentParts);
+          currentParts = [];
+          currentBoundary = null;
+          await this.emitDoc([part]);
+        } else if (currentBoundary && currentBoundary !== part.boundary) {
+          await this.emitDoc(currentParts);
+          currentParts = [part];
+          currentBoundary = null;
+        } else {
+          currentParts.push(part);
+          currentBoundary = part.boundary;
+        }
+      }
+      batchComplete = done;
+    } while (!batchComplete);
+    await this.emitDoc(currentParts);
+  }
+  async getDocsMultipart(revs) {
+    const url = new URL(`${this.db.root}/_bulk_get`, this.db.url);
+    url.searchParams.set("revs", "true");
+    url.searchParams.set("attachments", "true");
+    const payload = { docs: revs };
+    const response = await fetch(url, {
+      headers: {
+        ...this.db.headers,
+        "Content-Type": "application/json",
+        "Accept": "multipart/related"
+      },
+      method: "post",
+      body: JSON.stringify(payload)
+    });
+    if (response.status !== 200) {
+      throw new Error("Could not get docs multipart");
+    }
+    return response;
+  }
+  async emitDoc(parts) {
+    if (parts.length === 0)
+      return;
+    const { headers, data } = parts.shift();
+    const json = this.decoder.decode(data);
+    const doc = JSON.parse(json);
+    for (const { headers: headers2, data: data2 } of parts) {
+      const contentDisposition = headers2["Content-Disposition"];
+      if (!contentDisposition) {
+        console.warn("skipping attachment with missing Content-Disposition header", headers2, doc, parts);
+        continue;
+      }
+      const [_, filename] = contentDisposition.match(/filename="([^"]+)"/);
+      if (!(filename in doc._attachments)) {
+        console.warn("skipping attachment due to missing filename in docs attachments stub", headers2, doc, parts);
+        continue;
+      }
+      const type = headers2["Content-Type"];
+      if (!type) {
+        console.warn("skipping attachment due to missing Content-Type header", headers2, doc, parts);
+        continue;
+      }
+      const blob = new Blob([data2], { type });
+      const contentEncoding = headers2["Content-Encoding"];
+      if (contentEncoding === "gzip") {
+        doc._attachments[filename].data = await gunzip(blob, type);
+        delete doc._attachments[filename].follows;
+        delete doc._attachments[filename].encoding;
+        delete doc._attachments[filename].encoded_length;
+      } else if (contentEncoding) {
+        console.warn("skipping attachment with unsupported Content-Encoding header", headers2, doc, parts);
+        continue;
+      } else {
+        doc._attachments[filename].data = blob;
+        delete doc._attachments[filename].follows;
+      }
+    }
+    this.docsRead++;
+    this.onDoc(doc);
+  }
+};
+var GetDocsTransformStream = class {
+  constructor(db, { batchSize }) {
+    const docsGetter = new DocsGetter(db, { batchSize });
+    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
+    this.docsGetter = docsGetter;
+    this.readable = new ReadableStream({
+      start(controller) {
+        docsGetter.onDoc = (diff) => controller.enqueue(diff);
+        docsGetter.onClose = () => controller.close();
+      }
+    });
+    this.writable = new WritableStream({
+      write(rev) {
+        return docsGetter.addRev(rev);
+      },
+      close() {
+        return docsGetter.close();
+      }
+    }, queueingStrategy);
+  }
+  get docsRead() {
+    return this.docsGetter.docsRead;
+  }
+};
+
+// src/remote/Remote.js
 var Remote = class {
   constructor({ url, headers }) {
     this.url = url;
     this.root = url.pathname;
     this.headers = headers;
+    this.changesParser = null;
   }
   async getUuid() {
     const url = new URL(this.url);
@@ -924,41 +1647,19 @@ var Remote = class {
     const { update_seq } = await response.json();
     return update_seq;
   }
-  async getDoc(id) {
-    const url = new URL(`${this.root}/${encodeURIComponent(id)}`, this.url);
-    url.searchParams.set("attachments", "true");
+  async getReplicationLog(id) {
+    const _id = `_local/${id}`;
+    const url = new URL(`${this.root}/${_id}`, this.url);
     const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        Accept: "application/json"
-      }
+      headers: this.headers
     });
-    if (response.status !== 200) {
-      throw new Error(`Could not find doc with id '${id}'`);
+    if (response.status === 200) {
+      return response.json();
     }
-    const doc = await response.json();
-    if (doc._attachments) {
-      for (const name in doc._attachments) {
-        const {
-          content_type,
-          data: data64
-        } = doc._attachments[name];
-        doc._attachments[name].data = base64ToBlob(data64, content_type);
-      }
-    }
-    return doc;
+    return { _id };
   }
-  async saveDoc(doc) {
-    const { _id: id } = doc;
-    const url = new URL(`${this.root}/${encodeURIComponent(id)}`, this.url);
-    if (doc._attachments) {
-      for (const name in doc._attachments) {
-        const {
-          data: blob
-        } = doc._attachments[name];
-        doc._attachments[name].data = await blobToBase64(blob);
-      }
-    }
+  async saveReplicationLog(doc) {
+    const url = new URL(`${this.root}/${doc._id}`, this.url);
     const response = await fetch(url, {
       headers: {
         ...this.headers,
@@ -968,46 +1669,20 @@ var Remote = class {
       body: JSON.stringify(doc)
     });
     if (response.status !== 201) {
-      throw new Error(`Could not save doc '${id}'`);
+      throw new Error("Could not save replication log");
     }
     return response.json();
   }
-  async getReplicationLog(id) {
-    const url = new URL(`${this.root}/_local/${id}`, this.url);
-    const response = await fetch(url, {
-      headers: this.headers
-    });
-    if (response.status === 200) {
-      return response.json();
-    }
-    return {
-      _id: `_local/${id}`
-    };
-  }
-  async saveReplicationLog(log) {
-    const url = new URL(`${this.root}/${log._id}`, this.url);
-    const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        "Content-Type": "application/json"
-      },
-      method: "put",
-      body: JSON.stringify(log)
-    });
-    if (response.status !== 201) {
-      throw new Error("Could not save replication log");
-    }
-  }
-  async getChanges({ since, limit } = {}) {
+  async getChangesStream(since, { limit } = {}) {
     const url = new URL(`${this.root}/_changes`, this.url);
     url.searchParams.set("feed", "normal");
     url.searchParams.set("style", "all_docs");
+    if (since) {
+      url.searchParams.set("since", since);
+    }
     if (limit) {
       url.searchParams.set("limit", limit);
       url.searchParams.set("seq_interval", limit);
-    }
-    if (since) {
-      url.searchParams.set("since", since);
     }
     const response = await fetch(url, {
       headers: this.headers
@@ -1015,148 +1690,51 @@ var Remote = class {
     if (response.status !== 200) {
       throw new Error("Could not get changes");
     }
-    const {
-      results,
-      last_seq: lastSeq
-    } = await response.json();
-    return {
-      changes: results,
-      lastSeq
-    };
-  }
-  async getRevsDiff(changes) {
-    const url = new URL(`${this.root}/_revs_diff`, this.url);
-    const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        "Content-Type": "application/json"
-      },
-      method: "post",
-      body: JSON.stringify(changes)
-    });
-    if (response.status !== 200) {
-      throw new Error("Could not get revs diff");
-    }
-    const diff = await response.json();
-    const revs = [];
-    for (const id in diff) {
-      const { missing } = diff[id];
-      for (const rev of missing) {
-        revs.push({ id, rev });
-      }
-    }
-    return revs;
-  }
-  async getRevsMultipart(revs, ondoc) {
-    const url = new URL(`${this.root}/_bulk_get`, this.url);
-    url.searchParams.set("revs", "true");
-    url.searchParams.set("attachments", "true");
-    const payload = { docs: revs };
-    const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        "Content-Type": "application/json",
-        "Accept": "multipart/related"
-      },
-      method: "post",
-      body: JSON.stringify(payload)
-    });
-    if (response.status !== 200) {
-      throw new Error("Could not get revs");
-    }
-    const contentType = response.headers.get("Content-Type");
-    const multipart = new MultipartRelated(contentType);
+    this.changesParserTransformStream = new ChangesParserTransformStream();
     const reader = response.body.getReader();
-    let currentBoundary;
-    let currentParts = [];
-    const decoder = new TextDecoder();
-    const process = ({ value, done }) => {
-      const parts = multipart.read(value);
-      for (const part of parts) {
-        if (!part.related) {
-          const { headers, data } = part;
-          const json = decoder.decode(data);
-          const doc = JSON.parse(json);
-          ondoc(doc);
-          currentParts = [];
-          currentBoundary = null;
-        } else {
-          if (currentBoundary && currentBoundary !== part.related) {
-            const { headers, data } = currentParts.shift();
-            const json = decoder.decode(data);
-            const doc = JSON.parse(json);
-            for (const { headers: headers2, data: data2 } of currentParts) {
-              const contentDisposition = headers2["Content-Disposition"];
-              if (!contentDisposition) {
-                console.warn("unparsed attachment", headers2, doc, currentParts);
-                continue;
-              }
-              const [_, filename] = contentDisposition.match(/filename="([^"]+)"/);
-              const type = headers2["Content-Type"];
-              const blob = new Blob([data2], { type });
-              doc._attachments[filename].data = blob;
-              delete doc._attachments[filename].follows;
-            }
-            ondoc(doc);
-            currentParts = [];
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
           }
-          currentBoundary = part.related;
-          currentParts.push(part);
+          controller.enqueue(value);
         }
+        controller.close();
+        reader.releaseLock();
       }
-      return done || reader.read().then(process);
-    };
-    return reader.read().then(process);
-  }
-  async getRevs(revs) {
-    const url = new URL(`${this.root}/_bulk_get`, this.url);
-    url.searchParams.set("revs", "true");
-    url.searchParams.set("attachments", "true");
-    const payload = { docs: revs };
-    const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        "Content-Type": "application/json"
-      },
-      method: "post",
-      body: JSON.stringify(payload)
     });
-    if (response.status !== 200) {
-      throw new Error("Could not get revs");
-    }
-    const { results } = await response.json();
-    const foundRevs = [];
-    for (const { docs } of results) {
-      for (const { ok } of docs) {
-        foundRevs.push(ok);
-      }
-    }
-    return foundRevs;
+    return readableStream.pipeThrough(this.changesParserTransformStream);
   }
-  async saveRevs(revs) {
-    const url = new URL(`${this.root}/_bulk_docs`, this.url);
-    const payload = { docs: revs, new_edits: false };
-    const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        "Content-Type": "application/json"
-      },
-      method: "post",
-      body: JSON.stringify(payload)
-    });
-    if (response.status !== 201) {
-      throw new Error("Could not save revs");
-    }
+  get lastSeq() {
+    return this.changesParserTransformStream && this.changesParserTransformStream.lastSeq;
+  }
+  get numberOfChanges() {
+    return this.changesParserTransformStream && this.changesParserTransformStream.numberOfChanges;
+  }
+  getDiffsStream({ batchSize } = { batchSize: 128 }) {
+    throw new Error("Not supported for Remote yet");
+  }
+  getDocsStream({ batchSize } = { batchSize: 512 }) {
+    this.getDocsTransformSteam = new GetDocsTransformStream(this, { batchSize });
+    return this.getDocsTransformSteam;
+  }
+  get docsRead() {
+    return this.getDocsTransformSteam ? this.getDocsTransformSteam.docsRead : 0;
+  }
+  writeDocsStream({ batchSize } = { batchSize: 128 }) {
+    throw new Error("Not supported for Remote yet");
+  }
+  get docsWritten() {
+    throw new Error("Not supported for Remote yet");
   }
 };
 
-// src/Replication.js
-var INITIAL_CHANGES_LIMIT = 128;
-var CHANGES_LIMIT = 1024;
-var DATA_BATCH_SIZE = 1024;
+// src/replicate.js
+var import_spark_md53 = __toESM(require_spark_md5(), 1);
 var generateReplicationLogId = async (localId, remoteId) => {
-  const text = localId + remoteId;
-  return await calculateSha1(text);
+  return import_spark_md53.default.hash(`${localId}${remoteId}`);
 };
 var findCommonAncestor = (localLog, remoteLog) => {
   return localLog.session_id && localLog.session_id === remoteLog.session_id && localLog.source_last_seq && localLog.source_last_seq === remoteLog.source_last_seq ? localLog.source_last_seq : null;
@@ -1172,141 +1750,87 @@ var compareSeqs = (a, b) => {
   const bInt = parseInt(b, 10);
   return aInt - bInt;
 };
-var Replication = class {
-  constructor(source, target) {
-    this.source = source;
-    this.target = target;
-    this.sessionId = makeUuid();
-    this.changes = [];
-    this.docsWritten = 0;
-    this.targetLog = null;
-    this.sourceLog = null;
-    this.remoteSeq = null;
-    this.startSeq = null;
-    this.lastSeq = null;
-  }
-  get name() {
-    return `Replication#${this.sessionId}(${this.source.constructor.name}\u2192${this.target.constructor.name})`;
-  }
-  async replicate() {
-    console.time(this.name);
-    await this.getInfos();
-    if (compareSeqs(this.startSeq, this.remoteSeq) < 0) {
-      const done = await this.getChangesBatch(INITIAL_CHANGES_LIMIT);
-      if (done) {
-        await this.processChanges();
-      } else {
-        await Promise.all([
-          this.getChanges(),
-          this.processChanges()
-        ]);
-      }
-      await this.storeCheckpoints();
-    }
-    console.timeEnd(this.name);
-  }
-  async getInfos() {
-    const [
-      localUuid,
-      remoteUuid,
-      remoteSeq
-    ] = await Promise.all([
-      this.target.getUuid(),
-      this.source.getUuid(),
-      this.source.getUpdateSeq()
-    ]);
-    this.remoteSeq = remoteSeq;
-    const replicationLogId = await generateReplicationLogId(localUuid, remoteUuid);
-    const [
-      targetLog,
-      sourceLog
-    ] = await Promise.all([
-      this.target.getReplicationLog(replicationLogId),
-      this.source.getReplicationLog(replicationLogId)
-    ]);
-    this.targetLog = targetLog;
-    this.sourceLog = sourceLog;
-    this.startSeq = findCommonAncestor(targetLog, sourceLog);
-  }
-  async storeCheckpoints() {
-    if (this.lastSeq !== this.startSeq) {
-      this.sourceLog.session_id = this.sessionId;
-      this.sourceLog.source_last_seq = this.lastSeq;
-      this.targetLog.session_id = this.sessionId;
-      this.targetLog.source_last_seq = this.lastSeq;
-      await Promise.all([
-        this.target.saveReplicationLog(this.targetLog),
-        this.source.saveReplicationLog(this.sourceLog)
+async function replicate(source, target) {
+  const sessionId = makeUuid();
+  const stats = {
+    docsRead: 0,
+    docsWritten: 0
+  };
+  const [
+    localUuid,
+    remoteUuid,
+    remoteSeq
+  ] = await Promise.all([
+    target.getUuid(),
+    source.getUuid(),
+    source.getUpdateSeq()
+  ]);
+  const replicationLogId = await generateReplicationLogId(localUuid, remoteUuid);
+  const [
+    targetLog,
+    sourceLog
+  ] = await Promise.all([
+    target.getReplicationLog(replicationLogId),
+    source.getReplicationLog(replicationLogId)
+  ]);
+  let startSeq = findCommonAncestor(targetLog, sourceLog);
+  let changesComplete = false;
+  while (!changesComplete && compareSeqs(startSeq, remoteSeq) < 0) {
+    await source.getChangesStream(startSeq, { limit: 1024 }).then((rs) => rs.pipeThrough(target.getDiffsStream({ batchSize: 128 }))).then((rs) => rs.pipeThrough(source.getDocsStream({ batchSize: 512 }))).then((rs) => rs.pipeTo(target.writeDocsStream({ batchSize: 128 })));
+    const { lastSeq, numberOfChanges, docsRead } = source;
+    const { docsWritten } = target;
+    stats.lastSeq = lastSeq;
+    stats.docsRead += docsRead;
+    stats.docsWritten += docsWritten;
+    changesComplete = numberOfChanges < 1024;
+    if (lastSeq !== startSeq) {
+      sourceLog.session_id = sessionId;
+      sourceLog.source_last_seq = lastSeq;
+      targetLog.session_id = sessionId;
+      targetLog.source_last_seq = lastSeq;
+      const [
+        { rev: targetLogRev },
+        { rev: sourceLogRev }
+      ] = await Promise.all([
+        target.saveReplicationLog(targetLog),
+        source.saveReplicationLog(sourceLog)
       ]);
+      targetLog._rev = targetLogRev;
+      sourceLog._rev = sourceLogRev;
     }
+    startSeq = lastSeq;
   }
-  async getChanges() {
-    let done;
-    do {
-      done = await this.getChangesBatch();
-    } while (!done);
-  }
-  async getChangesBatch(limit = CHANGES_LIMIT) {
-    const { changes, lastSeq } = await this.source.getChanges({
-      since: this.lastSeq || this.startSeq,
-      limit
-    });
-    this.lastSeq = lastSeq;
-    this.changes.push(...changes);
-    return compareSeqs(lastSeq, this.remoteSeq) >= 0 || changes.length < limit;
-  }
-  async processChanges() {
-    let done;
-    do {
-      done = await this.processChangesBatch();
-    } while (!done);
-  }
-  async processChangesBatch(batchSize = DATA_BATCH_SIZE) {
-    const batchOfChanges = this.changes.splice(0, batchSize);
-    const revs = {};
-    for (const { id, changes } of batchOfChanges) {
-      revs[id] = changes.map(({ rev }) => rev);
-    }
-    const diffs = await this.target.getRevsDiff(revs);
-    if (diffs.length > 0) {
-      await this.source.getRevsMultipart(diffs, async (doc) => {
-        await this.target.saveRev(doc);
-        this.docsWritten++;
-      });
-    }
-    return this.changes.length === 0;
-  }
-};
+  return stats;
+}
 
 // src/Microcouch.js
+var CHANGE_EVENT = new Event("change");
 var Microcouch = class extends EventTarget {
   constructor({ name, url, headers }) {
     super();
     this.local = new Local({ name });
     this.remote = new Remote({ url, headers });
-    this.changeEvent = new Event("change");
   }
   init() {
     return this.local.init();
   }
-  getChanges({ since, limit } = {}) {
-    return this.local.getChanges({ since, limit });
-  }
-  getDoc(id) {
-    return this.local.getDoc(id);
-  }
-  async saveDoc(doc) {
-    const response = await this.local.saveDoc(doc);
-    this.push();
-    this.dispatchEvent(this.changeEvent);
-    return response;
-  }
   async pull() {
-    const replication = new Replication(this.remote, this.local);
-    await replication.replicate();
-    if (replication.docsWritten > 0) {
-      this.dispatchEvent(this.changeEvent);
+    console.time("pull");
+    const result = await replicate(this.remote, this.local);
+    console.timeEnd("pull");
+    if (result.docsWritten > 0) {
+      this.dispatchEvent(CHANGE_EVENT);
     }
+    return result;
+  }
+  push() {
+    return replicate(this.local, this.remote);
+  }
+  sync() {
+    return Promise.all([
+      this.pull(),
+      this.push()
+    ]);
   }
 };
 export {

@@ -1,10 +1,10 @@
 // Microcouch
-// 1.0.0
 
-import { makeUuid, calculateSha1 } from './utils.js'
-import Local from './Local.js'
-import Remote from './Remote.js'
-import Replication from './Replication.js'
+import Local from './local/Local.js'
+import Remote from './remote/Remote.js'
+import replicate from './replicate.js'
+
+const CHANGE_EVENT = new Event('change')
 
 export default class Microcouch extends EventTarget {
   constructor ({ name, url, headers }) {
@@ -12,61 +12,59 @@ export default class Microcouch extends EventTarget {
 
     this.local = new Local({ name })
     this.remote = new Remote({ url, headers })
-
-    this.changeEvent = new Event('change')
   }
 
   init () {
-    // only local needs initializing
     return this.local.init()
   }
 
-  getChanges ({ since, limit } = {}) {
-    return this.local.getChanges({ since, limit })
+  async pull () {
+    console.time('pull')
+    const result = await replicate(this.remote, this.local)
+    console.timeEnd('pull')
+    if (result.docsWritten > 0) {
+      this.dispatchEvent(CHANGE_EVENT)
+    }
+    return result
   }
 
-  getDoc (id) {
-    return this.local.getDoc(id)
+  push () {
+    return replicate(this.local, this.remote)
   }
 
-  async saveDoc (doc) {
-    const response = await this.local.saveDoc(doc)
-    this.push()
-    this.dispatchEvent(this.changeEvent)
-    return response
+  sync () {
+    return Promise.all([
+      this.pull(),
+      this.push()
+    ])
   }
 
-  // TODO: implement getDocs
-  // getDocs ({ startkey, endkey, descending, limit }) {
-  //   return this.local.getDocs(ids)
+  // TODO: this will be the user facing db api
+  // it will operate on the local db only
+
+  // getDoc (id) {
+  //   return this.local.getDoc(id)
   // }
 
-  // TODO: implement saveDocs
-  // async saveDocs (docs) {
-  //   const response = await this.local.saveDocs(docs)
+  // getDocs ({ startkey, endkey, descending, limit }) {
+  //   return this.local.getRange({ startkey, endkey, descending, limit })
+  // }
+
+  // getChanges ({ since, limit } = {}) {
+  //   return this.local.getChanges({ since, limit })
+  // }
+
+  // async saveDoc (doc) {
+  //   const response = await this.local.saveDoc(doc)
   //   this.push()
-  //   this.dispatchEvent(this.changeEvent)
+  //   this.dispatchEvent(CHANGE_EVENT)
   //   return response
   // }
 
-  async pull () {
-    const replication = new Replication(this.remote, this.local)
-    await replication.replicate()
-    if (replication.docsWritten > 0) {
-      this.dispatchEvent(this.changeEvent)
-    }
-  }
-
-  // TODO: not supported yet
-  // push () {
-  //   const replication = new Replication(this.local, this.remote)
-  //   return replication.replicate()
-  // }
-  
-  // sync () {
-  //   return Promise.all([
-  //     this.pull(),
-  //     this.push()
-  //   ])
+  // async saveDocs (docs) {
+  //   const response = await this.local.saveDocs(docs)
+  //   this.push()
+  //   this.dispatchEvent(CHANGE_EVENT)
+  //   return response
   // }
 }

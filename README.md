@@ -30,6 +30,7 @@ Left to do:
 Place `dist/microcouch.js` into your served directory. Then:
 
 ```html
+<script src="//unpkg.com/@stardazed/streams-polyfill/dist/sd-streams-polyfill.min.js"></script>
 <script type=module>
   import Microcouch from './microcouch.js'
 
@@ -50,8 +51,11 @@ Place `dist/microcouch.js` into your served directory. Then:
 </script>
 ```
 
-## Replication can be so fast
-Basically due to the use of inline attachment fetching via `_bulk_get` this is about 4-5 times faster than PouchDB:
+Note how you can use a webstream polyfill to make it work in more browsers.
+
+
+## Replication Performance
+I am documenting performance metrics and compare them to PouchDB, while I'm iterating over the code. I am testing on Chrome.
 
 ### 1. Using Inline Attachments
 At first I implemented replication by fetching attachments as base64 aka inline attachments:

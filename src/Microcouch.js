@@ -29,6 +29,7 @@ export default class Microcouch extends EventTarget {
   }
 
   push () {
+    // TODO: currently not implemented by Local and Remote
     return replicate(this.local, this.remote)
   }
 
@@ -38,33 +39,4 @@ export default class Microcouch extends EventTarget {
       this.push()
     ])
   }
-
-  // TODO: this will be the user facing db api
-  // it will operate on the local db only
-
-  // getDoc (id) {
-  //   return this.local.getDoc(id)
-  // }
-
-  // getDocs ({ startkey, endkey, descending, limit }) {
-  //   return this.local.getRange({ startkey, endkey, descending, limit })
-  // }
-
-  // getChanges ({ since, limit } = {}) {
-  //   return this.local.getChanges({ since, limit })
-  // }
-
-  // async saveDoc (doc) {
-  //   const response = await this.local.saveDoc(doc)
-  //   this.push()
-  //   this.dispatchEvent(CHANGE_EVENT)
-  //   return response
-  // }
-
-  // async saveDocs (docs) {
-  //   const response = await this.local.saveDocs(docs)
-  //   this.push()
-  //   this.dispatchEvent(CHANGE_EVENT)
-  //   return response
-  // }
 }

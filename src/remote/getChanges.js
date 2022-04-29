@@ -67,6 +67,7 @@ class ChangesUnpacker {
   }
 }
 
+// TODO: extend TransformStream instead
 class ChangesParserTransformStream {
   constructor() {
     const unpacker = new ChangesUnpacker()

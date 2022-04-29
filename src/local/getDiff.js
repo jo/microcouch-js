@@ -70,6 +70,7 @@ class GetDiffs {
   }
 }
 
+// TODO: extend TransformStream instead
 class GetDiffsTransformStream {
   constructor(db, { batchSize }) {
     const revsDiffsGetter = new GetDiffs(db, { batchSize })

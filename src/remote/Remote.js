@@ -11,7 +11,6 @@ export default class Remote {
   }
 
   // get the server uuid
-  // used in replication
   async getUuid () {
     const url = new URL(this.url)
     url.pathname = '/'
@@ -28,7 +27,6 @@ export default class Remote {
   }
 
   // get the db update seq
-  // used in replication
   async getUpdateSeq () {
     const url = new URL(this.url)
 
@@ -45,7 +43,6 @@ export default class Remote {
 
   // get a replication log (a local doc)
   // and fallback to a stub if non-existent
-  // used in replication
   // TODO: use getDoc
   async getReplicationLog (id) {
     const _id = `_local/${id}`
@@ -62,7 +59,6 @@ export default class Remote {
   }
 
   // save replication doc
-  // used in replication
   // TODO: use saveDoc
   async saveReplicationLog (doc) {
     const url = new URL(`${this.root}/${doc._id}`, this.url)
@@ -86,9 +82,7 @@ export default class Remote {
     return getChanges(this, since, { limit })
   }
 
-  // used in push replication
-  // TODO: rename to getDiffs
-  getDiffsStream ({ batchSize } = { batchSize: 128 }) {
+  getDiff ({ batchSize } = { batchSize: 128 }) {
     throw new Error('Not supported for Remote yet')
   }
 
@@ -97,15 +91,7 @@ export default class Remote {
     return getDocs(this, { batchSize })
   }
 
-  // used in push replication
-  // TODO: rename to saveDocs
-  writeDocsStream ({ batchSize } = { batchSize: 128 }) {
-    throw new Error('Not supported for Remote yet')
-  }
-
-  // used in push replication
-  // TODO: somehow expose to saveDocs stream directly
-  get docsWritten () {
+  saveDocs ({ batchSize } = { batchSize: 128 }) {
     throw new Error('Not supported for Remote yet')
   }
 }

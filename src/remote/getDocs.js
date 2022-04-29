@@ -187,6 +187,7 @@ class DocsGetter {
   }
 }
 
+// TODO: extend TransformStream instead
 class GetDocsTransformStream {
   constructor(db, { batchSize }) {
     const docsGetter = new DocsGetter(db, { batchSize })

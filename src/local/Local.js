@@ -70,12 +70,12 @@ export default class Local {
     })
   }
 
-  // TODO: make this private
+  // TODO: make this kinda private or use the indexeddb directly
   getDocStore (mode) {
     return this.db.transaction(DOC_STORE, mode).objectStore(DOC_STORE)
   }
 
-  // TODO: make this private
+  // TODO: make this kinda private or use the indexeddb directly
   getStores (mode) {
     const transaction =  this.db.transaction([DOC_STORE, META_STORE], mode)
     return {
@@ -96,19 +96,16 @@ export default class Local {
     })
   }
 
-  // used in replication
   getUuid () {
     const { db_uuid } = this.metadata
     return db_uuid
   }
 
-  // used in replication
   getUpdateSeq () {
     const { seq } = this.metadata
     return seq
   }
 
-  // used in replication
   // TODO: use getDoc
   async getReplicationLog (id) {
     const _id = `_local/${id}`
@@ -123,7 +120,6 @@ export default class Local {
     })
   }
 
-  // used in replication
   // TODO: use saveDoc
   async saveReplicationLog (doc) {
     doc._rev = doc._rev ? doc._rev + 1 : 1

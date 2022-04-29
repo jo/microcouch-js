@@ -1059,9 +1059,6 @@ var DocsWriter = class {
     });
   }
   async saveDocs(docs) {
-    const stats = {
-      docsWritten: 0
-    };
     const docsWithEntries = await this.getExistingEntries(docs);
     const { seq, doc_count } = this.db.metadata;
     const { entries, metadata } = await this.buildEntries(docsWithEntries, { seq, doc_count });
@@ -1712,16 +1709,13 @@ var Remote = class {
   getChanges(since, { limit } = {}) {
     return getChanges(this, since, { limit });
   }
-  getDiffsStream({ batchSize } = { batchSize: 128 }) {
+  getDiff({ batchSize } = { batchSize: 128 }) {
     throw new Error("Not supported for Remote yet");
   }
   getDocs({ batchSize } = { batchSize: 512 }) {
     return getDocs(this, { batchSize });
   }
-  writeDocsStream({ batchSize } = { batchSize: 128 }) {
-    throw new Error("Not supported for Remote yet");
-  }
-  get docsWritten() {
+  saveDocs({ batchSize } = { batchSize: 128 }) {
     throw new Error("Not supported for Remote yet");
   }
 };

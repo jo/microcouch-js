@@ -468,7 +468,7 @@ var makeUuid = () => {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 };
 
-// src/local/GetDiffsTransformStream.js
+// src/local/getDiff.js
 var GetDiffs = class {
   constructor(db, { batchSize }) {
     this.db = db;
@@ -552,6 +552,9 @@ var GetDiffsTransformStream = class {
     }, queueingStrategy);
   }
 };
+function getDiff(db, { batchSize } = { batchSize: 128 }) {
+  return new GetDiffsTransformStream(db, { batchSize });
+}
 
 // src/local/model.js
 var import_spark_md52 = __toESM(require_spark_md5(), 1);
@@ -981,7 +984,7 @@ var docToEntry = async (seq, doc, existingEntry, { newEdits } = { newEdits: true
   };
 };
 
-// src/local/SaveDocsWritableStream.js
+// src/local/saveDocs.js
 var DocsWriter = class {
   constructor(db, { batchSize }) {
     this.db = db;
@@ -1079,20 +1082,20 @@ var DocsWriter = class {
     } while (batch.length === this.batchSize);
   }
 };
-var SaveDocsWritableStream = class {
-  constructor(db, { batchSize }) {
-    this.docsWriter = new DocsWriter(db, { batchSize });
-  }
-  get docsWritten() {
-    return this.docsWriter.docsWritten;
-  }
-  write(doc) {
-    return this.docsWriter.add(doc);
-  }
-  close() {
-    return this.docsWriter.close();
-  }
-};
+function saveDocs(db, { batchSize } = { batchSize: 128 }) {
+  const docsWriter = new DocsWriter(db, { batchSize });
+  const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
+  const stream = new WritableStream({
+    write(doc) {
+      return docsWriter.add(doc);
+    },
+    close() {
+      stream.docsWritten = docsWriter.docsWritten;
+      return docsWriter.close();
+    }
+  }, queueingStrategy);
+  return stream;
+}
 
 // src/local/Local.js
 var DOC_STORE = "docs";
@@ -1195,32 +1198,21 @@ var Local = class {
       this.getDocStore("readwrite").put(entry).onsuccess = () => resolve({ rev: doc._rev });
     });
   }
-  async getChangesStream(since, { limit } = {}) {
+  getChanges(since, { limit } = {}) {
     throw new Error("Not supported for Local yet");
   }
-  get lastSeq() {
+  getDiff({ batchSize } = { batchSize: 128 }) {
+    return new getDiff(this, { batchSize });
+  }
+  getDocs({ batchSize } = { batchSize: 512 }) {
     throw new Error("Not supported for Local yet");
   }
-  getDiffsStream({ batchSize } = { batchSize: 128 }) {
-    return new GetDiffsTransformStream(this, { batchSize });
-  }
-  getDocsStream({ batchSize } = { batchSize: 512 }) {
-    throw new Error("Not supported for Local yet");
-  }
-  get docsRead() {
-    throw new Error("Not supported for Local yet");
-  }
-  writeDocsStream({ batchSize } = { batchSize: 128 }) {
-    this.saveStream = new SaveDocsWritableStream(this, { batchSize });
-    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
-    return new WritableStream(this.saveStream, queueingStrategy);
-  }
-  get docsWritten() {
-    return this.saveStream && this.saveStream.docsWritten;
+  saveDocs({ batchSize } = { batchSize: 128 }) {
+    return saveDocs(this, { batchSize });
   }
 };
 
-// src/remote/ChangesParserTransformStream.js
+// src/remote/getChanges.js
 var nextSplitPosition = (data, offset = 0) => {
   if (offset > data.length + 4)
     return [-1];
@@ -1280,12 +1272,17 @@ var ChangesParserTransformStream = class {
   constructor() {
     const unpacker = new ChangesUnpacker();
     const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
-    this.readable = new ReadableStream({
+    const readable = new ReadableStream({
       start(controller) {
         unpacker.onChange = (change) => controller.enqueue(change);
-        unpacker.onClose = () => controller.close();
+        unpacker.onClose = () => {
+          readable.lastSeq = unpacker.lastSeq;
+          readable.numberOfChanges = unpacker.numberOfChanges;
+          controller.close();
+        };
       }
     });
+    this.readable = readable;
     this.writable = new WritableStream({
       write(uint8Array) {
         unpacker.addBinaryData(uint8Array);
@@ -1293,13 +1290,41 @@ var ChangesParserTransformStream = class {
     }, queueingStrategy);
     this.unpacker = unpacker;
   }
-  get lastSeq() {
-    return this.unpacker.lastSeq;
-  }
-  get numberOfChanges() {
-    return this.unpacker.numberOfChanges;
-  }
 };
+async function getChanges(db, since, { limit } = {}) {
+  const url = new URL(`${db.root}/_changes`, db.url);
+  url.searchParams.set("feed", "normal");
+  url.searchParams.set("style", "all_docs");
+  if (since) {
+    url.searchParams.set("since", since);
+  }
+  if (limit) {
+    url.searchParams.set("limit", limit);
+    url.searchParams.set("seq_interval", limit);
+  }
+  const response = await fetch(url, {
+    headers: db.headers
+  });
+  if (response.status !== 200) {
+    throw new Error("Could not get changes");
+  }
+  db.changesParserTransformStream = new ChangesParserTransformStream();
+  const reader = response.body.getReader();
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        controller.enqueue(value);
+      }
+      controller.close();
+      reader.releaseLock();
+    }
+  });
+  return readableStream.pipeThrough(db.changesParserTransformStream);
+}
 
 // node_modules/multipart-related/src/first-boundary-position.js
 function firstBoundaryPosition(data, boundary, offset = 0) {
@@ -1455,7 +1480,12 @@ var MultipartRelated = class {
   }
 };
 
-// src/remote/GetDocsTransformStream.js
+// src/remote/getDocs.js
+var gzip = (blob) => {
+  const ds = new CompressionStream("gzip");
+  const compressedStream = blob.stream().pipeThrough(ds);
+  return new Response(compressedStream).blob();
+};
 var gunzip = (blob, type) => {
   const ds = new DecompressionStream("gzip");
   const decompressedStream = blob.stream().pipeThrough(ds);
@@ -1536,14 +1566,17 @@ var DocsGetter = class {
     url.searchParams.set("revs", "true");
     url.searchParams.set("attachments", "true");
     const payload = { docs: revs };
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const body = await gzip(blob);
     const response = await fetch(url, {
       headers: {
         ...this.db.headers,
         "Content-Type": "application/json",
-        "Accept": "multipart/related"
+        "Accept": "multipart/related",
+        "Content-Encoding": "gzip"
       },
       method: "post",
-      body: JSON.stringify(payload)
+      body
     });
     if (response.status !== 200) {
       throw new Error("Could not get docs multipart");
@@ -1615,6 +1648,9 @@ var GetDocsTransformStream = class {
     return this.docsGetter.docsRead;
   }
 };
+function getDocs(db, { batchSize } = {}) {
+  return new GetDocsTransformStream(db, { batchSize });
+}
 
 // src/remote/Remote.js
 var Remote = class {
@@ -1673,55 +1709,14 @@ var Remote = class {
     }
     return response.json();
   }
-  async getChangesStream(since, { limit } = {}) {
-    const url = new URL(`${this.root}/_changes`, this.url);
-    url.searchParams.set("feed", "normal");
-    url.searchParams.set("style", "all_docs");
-    if (since) {
-      url.searchParams.set("since", since);
-    }
-    if (limit) {
-      url.searchParams.set("limit", limit);
-      url.searchParams.set("seq_interval", limit);
-    }
-    const response = await fetch(url, {
-      headers: this.headers
-    });
-    if (response.status !== 200) {
-      throw new Error("Could not get changes");
-    }
-    this.changesParserTransformStream = new ChangesParserTransformStream();
-    const reader = response.body.getReader();
-    const readableStream = new ReadableStream({
-      async start(controller) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-          controller.enqueue(value);
-        }
-        controller.close();
-        reader.releaseLock();
-      }
-    });
-    return readableStream.pipeThrough(this.changesParserTransformStream);
-  }
-  get lastSeq() {
-    return this.changesParserTransformStream && this.changesParserTransformStream.lastSeq;
-  }
-  get numberOfChanges() {
-    return this.changesParserTransformStream && this.changesParserTransformStream.numberOfChanges;
+  getChanges(since, { limit } = {}) {
+    return getChanges(this, since, { limit });
   }
   getDiffsStream({ batchSize } = { batchSize: 128 }) {
     throw new Error("Not supported for Remote yet");
   }
-  getDocsStream({ batchSize } = { batchSize: 512 }) {
-    this.getDocsTransformSteam = new GetDocsTransformStream(this, { batchSize });
-    return this.getDocsTransformSteam;
-  }
-  get docsRead() {
-    return this.getDocsTransformSteam ? this.getDocsTransformSteam.docsRead : 0;
+  getDocs({ batchSize } = { batchSize: 512 }) {
+    return getDocs(this, { batchSize });
   }
   writeDocsStream({ batchSize } = { batchSize: 128 }) {
     throw new Error("Not supported for Remote yet");
@@ -1750,7 +1745,14 @@ var compareSeqs = (a, b) => {
   const bInt = parseInt(b, 10);
   return aInt - bInt;
 };
-async function replicate(source, target) {
+async function replicate(source, target, {
+  batchSize = {
+    getChanges: 1024,
+    getDiff: 128,
+    getDocs: 512,
+    saveDocs: 128
+  }
+} = {}) {
   const sessionId = makeUuid();
   const stats = {
     docsRead: 0,
@@ -1774,20 +1776,21 @@ async function replicate(source, target) {
     source.getReplicationLog(replicationLogId)
   ]);
   let startSeq = findCommonAncestor(targetLog, sourceLog);
+  if (compareSeqs(startSeq, remoteSeq) === 0) {
+    return stats;
+  }
   let changesComplete = false;
-  while (!changesComplete && compareSeqs(startSeq, remoteSeq) < 0) {
-    await source.getChangesStream(startSeq, { limit: 1024 }).then((rs) => rs.pipeThrough(target.getDiffsStream({ batchSize: 128 }))).then((rs) => rs.pipeThrough(source.getDocsStream({ batchSize: 512 }))).then((rs) => rs.pipeTo(target.writeDocsStream({ batchSize: 128 })));
-    const { lastSeq, numberOfChanges, docsRead } = source;
-    const { docsWritten } = target;
-    stats.lastSeq = lastSeq;
-    stats.docsRead += docsRead;
-    stats.docsWritten += docsWritten;
-    changesComplete = numberOfChanges < 1024;
-    if (lastSeq !== startSeq) {
+  while (!changesComplete) {
+    const getcChanges = await source.getChanges(startSeq, { limit: batchSize.getChanges });
+    const getDiff2 = target.getDiff({ batchSize: batchSize.getDiff });
+    const getDocs2 = source.getDocs({ batchSize: batchSize.getDocs });
+    const saveDocs2 = target.saveDocs({ batchSize: batchSize.saveDocs });
+    await getcChanges.pipeThrough(getDiff2).pipeThrough(getDocs2).pipeTo(saveDocs2);
+    if (getcChanges.lastSeq !== startSeq) {
       sourceLog.session_id = sessionId;
-      sourceLog.source_last_seq = lastSeq;
+      sourceLog.source_last_seq = getcChanges.lastSeq;
       targetLog.session_id = sessionId;
-      targetLog.source_last_seq = lastSeq;
+      targetLog.source_last_seq = getcChanges.lastSeq;
       const [
         { rev: targetLogRev },
         { rev: sourceLogRev }
@@ -1798,7 +1801,11 @@ async function replicate(source, target) {
       targetLog._rev = targetLogRev;
       sourceLog._rev = sourceLogRev;
     }
-    startSeq = lastSeq;
+    stats.lastSeq = getcChanges.lastSeq;
+    stats.docsRead += getDocs2.docsRead;
+    stats.docsWritten += saveDocs2.docsWritten;
+    startSeq = getcChanges.lastSeq;
+    changesComplete = getcChanges.numberOfChanges < batchSize.getChanges || compareSeqs(getcChanges.lastSeq, remoteSeq) >= 0;
   }
   return stats;
 }

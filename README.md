@@ -7,14 +7,16 @@ Data model compatible to PouchDBs experimental `indexeddb` adapter. It uses Pouc
 
 Focus is on a small set of functionality:
 * replication
-* get/save single doc
-* get/save in bulk
-* get by id range
+* get/save single docs and in bulk
+* get by id range (like allDocs)
 * changes feed
-* no map reduce
-* attachments
+* no map/reduce
+* attachment support
 * indexeddb only
-* modern browsers only (also no node support)
+* modern browsers (also no node support)
+* modern web standards
+* embrace es6
+* as few dependencies as possible
 
 
 ## State of Work
@@ -23,14 +25,15 @@ Pull replication works
 Left to do:
 * push replication
 * replication log history
-* implement `getDoc(id)`, `saveDoc(doc)`, `getDocs(range)` and `saveDocs(docs)`
+* implement `getDoc(id)`, `saveDoc(doc)`, `getDocs(range)`
 
 
 ## Usage
 Place `dist/microcouch.js` into your served directory. Then:
 
 ```html
-<script src="//unpkg.com/@stardazed/streams-polyfill/dist/sd-streams-polyfill.min.js"></script>
+<!-- include a web stream polyfill -->
+<script src=//unpkg.com/@stardazed/streams-polyfill@2.4.0/dist/sd-streams-polyfill.min.js></script>
 <script type=module>
   import Microcouch from './microcouch.js'
 
@@ -83,7 +86,7 @@ CouchDBs `_bulk_get` API supports fetching docs and their attachments in one go 
 #### Replicating a 1.5MB database with 2326 tiny docs each with very small attachments
 * Microcouch: 5.48s, 3.0MB transferred, 2.8MB resources loaded
 
-**Diff: uses 21.61% of the time PouchDB needs**
+**Diff: 21.61%**
 
 #### Replicating a big 0.6GB database of 46832 documents with a sec of 53841.
 uuuh oh, that does not seem to work anymore. Performance freaks out as it seems. Probably this is on the indexeddb side. Will investigate.
@@ -95,15 +98,29 @@ Implemented `multipart/related` replication with a streaming approach. That work
 #### Replicating a 1.5MB database with 2326 tiny docs each with very small attachments
 * Microcouch: 5.63s, 3.1MB transferred, 2.9MB resources loaded
 
-**Diff: 22.20%%**
+**Diff: 22.20%**
 
 #### Replicating a big 0.6GB database of 46832 documents with a sec of 53841.
 * Microcouch: 7.71m, 4960MB transferred, 4974MB resources loaded
 
+(we see a huge amount of transferred data, which come from the fact that gzip encoding was not configured for multipart/related responses)
+
 **Diff: 34.67%**
 
-## Test
-No tests, sorry. I wish we would have a outside couch test suite, where we can test various implementations agains. It could work via replicating a known source db back and forth and checking the result. Maybe also doing some pre-defined doc updates.
+
+### 4. Using Compression
+We can improve a little further by sending gzip encoded responses, and configure the server to serve compressed content.
+
+#### Replicating a 1.5MB database with 2326 tiny docs each with very small attachments
+* Microcouch: 4.42s, 1.1MB transferred, 2.9MB resources loaded
+
+**Diff: 17.42%**
+
+#### Replicating a big 0.6GB database of 46832 documents with a sec of 53841.
+* Microcouch: 6.93m, 320MB transferred, 5011MB resources loaded
+
+**Diff: 31.17%**
+
 
 
 (c) 2022 Johannes J. Schmidt

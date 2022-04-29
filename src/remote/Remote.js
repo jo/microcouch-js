@@ -1,5 +1,5 @@
-import ChangesParserTransformStream from './ChangesParserTransformStream.js'
-import GetDocsTransformStream from './GetDocsTransformStream.js'
+import getChanges from './getChanges.js'
+import getDocs from './getDocs.js'
 
 export default class Remote {
   constructor ({ url, headers }) {
@@ -46,6 +46,7 @@ export default class Remote {
   // get a replication log (a local doc)
   // and fallback to a stub if non-existent
   // used in replication
+  // TODO: use getDoc
   async getReplicationLog (id) {
     const _id = `_local/${id}`
     const url = new URL(`${this.root}/${_id}`, this.url)
@@ -62,6 +63,7 @@ export default class Remote {
 
   // save replication doc
   // used in replication
+  // TODO: use saveDoc
   async saveReplicationLog (doc) {
     const url = new URL(`${this.root}/${doc._id}`, this.url)
 
@@ -80,88 +82,29 @@ export default class Remote {
   }
 
   // get stream of changes
-  // used in replication
-  async getChangesStream (since, { limit } = {}) {
-    const url = new URL(`${this.root}/_changes`, this.url)
-    url.searchParams.set('feed', 'normal')
-    url.searchParams.set('style', 'all_docs')
-    if (since) {
-      url.searchParams.set('since', since)
-    }
-    if (limit) {
-      url.searchParams.set('limit', limit)
-      url.searchParams.set('seq_interval', limit)
-    }
-
-    const response = await fetch(url, {
-      headers: this.headers
-    })
-    if (response.status !== 200) {
-      throw new Error('Could not get changes')
-    }
-
-    this.changesParserTransformStream = new ChangesParserTransformStream()
-
-    // create a new ReadableStream out of the response
-    // in order to get it polyfilled
-    const reader = response.body.getReader()
-    const readableStream = new ReadableStream({
-      async start(controller) {
-        while (true) {
-          const { done, value } = await reader.read()
-
-          if (done) {
-            break
-          }
-
-          controller.enqueue(value)
-        }
-
-        controller.close()
-        reader.releaseLock()
-      }
-    })
-    
-    return readableStream
-      .pipeThrough(this.changesParserTransformStream)
-  }
-
-  // retrieve update seq of last parsed change
-  // used in replication
-  get lastSeq () {
-    return this.changesParserTransformStream && this.changesParserTransformStream.lastSeq
-  }
-
-  // retrieve number of changes of last parsed change
-  // used in replication
-  get numberOfChanges () {
-    return this.changesParserTransformStream && this.changesParserTransformStream.numberOfChanges
+  getChanges (since, { limit } = {}) {
+    return getChanges(this, since, { limit })
   }
 
   // used in push replication
+  // TODO: rename to getDiffs
   getDiffsStream ({ batchSize } = { batchSize: 128 }) {
     throw new Error('Not supported for Remote yet')
   }
 
   // get a stream of docs
-  // used in replication
-  getDocsStream ({ batchSize } = { batchSize: 512 }) {
-    this.getDocsTransformSteam = new GetDocsTransformStream(this, { batchSize })
-    return this.getDocsTransformSteam
-  }
-
-  // return number of docs read via getDocsStream
-  // used in replication
-  get docsRead () {
-    return this.getDocsTransformSteam ? this.getDocsTransformSteam.docsRead : 0
+  getDocs ({ batchSize } = { batchSize: 512 }) {
+    return getDocs(this, { batchSize })
   }
 
   // used in push replication
+  // TODO: rename to saveDocs
   writeDocsStream ({ batchSize } = { batchSize: 128 }) {
     throw new Error('Not supported for Remote yet')
   }
 
   // used in push replication
+  // TODO: somehow expose to saveDocs stream directly
   get docsWritten () {
     throw new Error('Not supported for Remote yet')
   }

@@ -155,20 +155,19 @@ class DocsWriter {
   }
 }
 
-export default class SaveDocsWritableStream {
-  constructor (db, { batchSize }) {
-    this.docsWriter = new DocsWriter(db, { batchSize })
-  }
+export default function saveDocs (db, { batchSize } = { batchSize: 128 }) {
+  const docsWriter = new DocsWriter(db, { batchSize })
 
-  get docsWritten () {
-    return this.docsWriter.docsWritten
-  }
+  const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
+  const stream = new WritableStream({
+    write (doc) {
+      return docsWriter.add(doc)
+    },
+    close () {
+      stream.docsWritten = docsWriter.docsWritten
+      return docsWriter.close()
+    }
+  }, queueingStrategy)
 
-  write (doc) {
-    return this.docsWriter.add(doc)
-  }
-
-  close () {
-    return this.docsWriter.close()
-  }
+  return stream
 }

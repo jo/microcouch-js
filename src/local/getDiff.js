@@ -70,7 +70,7 @@ class GetDiffs {
   }
 }
 
-export default class GetDiffsTransformStream {
+class GetDiffsTransformStream {
   constructor(db, { batchSize }) {
     const revsDiffsGetter = new GetDiffs(db, { batchSize })
     const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
@@ -91,4 +91,8 @@ export default class GetDiffsTransformStream {
       }
     }, queueingStrategy)
   }
+}
+
+export default function getDiff (db, { batchSize } = { batchSize: 128 }) {
+  return new GetDiffsTransformStream(db, { batchSize })
 }

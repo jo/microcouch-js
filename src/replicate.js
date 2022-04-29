@@ -27,7 +27,14 @@ const compareSeqs = (a, b) => {
 }
 
 // Replicate source to target
-export default async function replicate(source, target) {
+export default async function replicate(source, target, {
+  batchSize = {
+    getChanges: 1024,
+    getDiff: 128,
+    getDocs: 512,
+    saveDocs: 128
+  } 
+} = {}) {
   const sessionId = makeUuid()
 
   const stats = {
@@ -62,36 +69,43 @@ export default async function replicate(source, target) {
   // find common ancestor from logs
   let startSeq = findCommonAncestor(targetLog, sourceLog)
 
-  // track whether we've already retrieved all changes
-  let changesComplete = false
-
   // if start seq and remote seq match, do nothing
-  while (!changesComplete && compareSeqs(startSeq, remoteSeq) < 0) {
+  if (compareSeqs(startSeq, remoteSeq) === 0) {
+    return stats
+  }
+
+  let changesComplete = false
+  while (!changesComplete) {
+    const getcChanges = await source.getChanges(startSeq, { limit: batchSize.getChanges })
+    const getDiff = target.getDiff({ batchSize: batchSize.getDiff })
+    const getDocs = source.getDocs({ batchSize: batchSize.getDocs })
+    const saveDocs = target.saveDocs({ batchSize: batchSize.saveDocs })
+
+    // const logger = new WritableStream({
+    //   write (data) {
+    //     console.log(data)
+    //   },
+    //   close () {
+    //     console.log('closed.')
+    //   }
+    // })
+
     // run the pipeline:
     // 1. get changes from source
-    await source.getChangesStream(startSeq, { limit: 1024 })
-      // 2. get diffs from target
-      .then(rs => rs.pipeThrough(target.getDiffsStream({ batchSize: 128 })))
-      // 3. get docs from source
-      .then(rs => rs.pipeThrough(source.getDocsStream({ batchSize: 512 })))
-      // 4. save docs to target
-      .then(rs => rs.pipeTo(target.writeDocsStream({ batchSize: 128 })))
+    // 2. get diffs from target
+    // 3. get docs from source
+    // 4. save docs to target
+    await getcChanges
+      .pipeThrough(getDiff)
+      .pipeThrough(getDocs)
+      .pipeTo(saveDocs)
 
-    // collect stats
-    const { lastSeq, numberOfChanges, docsRead } = source
-    const { docsWritten } = target
-    stats.lastSeq = lastSeq
-    stats.docsRead += docsRead
-    stats.docsWritten += docsWritten
-
-    changesComplete = numberOfChanges < 1024
-
-    // when done, store replication logs, only if there was a change
-    if (lastSeq !== startSeq) {
+    // store replication logs only if there was a change
+    if (getcChanges.lastSeq !== startSeq) {
       sourceLog.session_id = sessionId
-      sourceLog.source_last_seq = lastSeq
+      sourceLog.source_last_seq = getcChanges.lastSeq
       targetLog.session_id = sessionId
-      targetLog.source_last_seq = lastSeq
+      targetLog.source_last_seq = getcChanges.lastSeq
       
       const [
         { rev: targetLogRev },
@@ -103,8 +117,19 @@ export default async function replicate(source, target) {
       targetLog._rev = targetLogRev
       sourceLog._rev = sourceLogRev
     }
+    
+    // collect stats
+    stats.lastSeq = getcChanges.lastSeq
+    stats.docsRead += getDocs.docsRead
+    stats.docsWritten += saveDocs.docsWritten
 
-    startSeq = lastSeq
+    // set next batch start seq
+    startSeq = getcChanges.lastSeq
+
+    // exit condition:
+    // * either retrieved less changes than limit
+    // * or reached the remote seq
+    changesComplete = getcChanges.numberOfChanges < batchSize.getChanges || compareSeqs(getcChanges.lastSeq, remoteSeq) >= 0
   }
     
   return stats

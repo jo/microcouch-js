@@ -67,17 +67,24 @@ class ChangesUnpacker {
   }
 }
 
-export default class ChangesParserTransformStream {
+class ChangesParserTransformStream {
   constructor() {
     const unpacker = new ChangesUnpacker()
     const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
 
-    this.readable = new ReadableStream({
+    const readable = new ReadableStream({
       start(controller) {
         unpacker.onChange = change => controller.enqueue(change)
-        unpacker.onClose = () => controller.close()
+        unpacker.onClose = () => {
+          // store stats
+          readable.lastSeq = unpacker.lastSeq
+          readable.numberOfChanges = unpacker.numberOfChanges
+
+          controller.close()
+        }
       }
     })
+    this.readable = readable
 
     this.writable = new WritableStream({
       write(uint8Array) {
@@ -87,14 +94,49 @@ export default class ChangesParserTransformStream {
 
     this.unpacker = unpacker
   }
+}
 
-  // retrieve the last seq
-  get lastSeq () {
-    return this.unpacker.lastSeq
+export default async function getChanges (db, since, { limit } = {}) {
+  const url = new URL(`${db.root}/_changes`, db.url)
+  url.searchParams.set('feed', 'normal')
+  url.searchParams.set('style', 'all_docs')
+  if (since) {
+    url.searchParams.set('since', since)
+  }
+  if (limit) {
+    url.searchParams.set('limit', limit)
+    url.searchParams.set('seq_interval', limit)
   }
 
-  // retrieve the number of changes read
-  get numberOfChanges () {
-    return this.unpacker.numberOfChanges
+  const response = await fetch(url, {
+    headers: db.headers
+  })
+  if (response.status !== 200) {
+    throw new Error('Could not get changes')
   }
+
+  db.changesParserTransformStream = new ChangesParserTransformStream()
+
+  // create a new ReadableStream out of the response
+  // in order to get it polyfilled
+  const reader = response.body.getReader()
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) {
+          break
+        }
+
+        controller.enqueue(value)
+      }
+
+      controller.close()
+      reader.releaseLock()
+    }
+  })
+  
+  return readableStream
+    .pipeThrough(db.changesParserTransformStream)
 }

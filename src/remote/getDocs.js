@@ -1,5 +1,34 @@
 import MultipartRelated from 'multipart-related'
 
+// const transformContent = {
+//   start (controller) {
+//     controller.enqueue(this.textencoder.encode('{"docs":['))
+//   },
+//   transform (doc, controller) {
+//     const line = JSON.stringify(doc)
+//     if (!this.firstLineSent) {
+//       this.firstLineSent = true
+//       controller.enqueue(this.textencoder.encode(line))
+//     }
+//     controller.enqueue(this.textencoder.encode(`,${line}`))
+//   },
+//   flush (controller) {
+//     controller.enqueue(this.textencoder.encode(']}'))
+//   }
+// }
+
+// class DiffRequest extends TransformStream {
+//   constructor() {
+//     super({...transformContent, textencoder: new TextEncoder()})
+//   }
+// }
+
+const gzip = blob => {
+  const ds = new CompressionStream('gzip')
+  const compressedStream = blob.stream().pipeThrough(ds)
+  return new Response(compressedStream).blob()
+}
+
 const gunzip = (blob, type) => {
   const ds = new DecompressionStream('gzip')
   const decompressedStream = blob.stream().pipeThrough(ds)
@@ -89,16 +118,19 @@ class DocsGetter {
     const url = new URL(`${this.db.root}/_bulk_get`, this.db.url)
     url.searchParams.set('revs', 'true')
     url.searchParams.set('attachments', 'true')
-    
+
     const payload = { docs: revs }
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+    const body = await gzip(blob)
     const response = await fetch(url, {
       headers: {
         ...this.db.headers,
         'Content-Type': 'application/json',
-        'Accept': 'multipart/related'
+        'Accept': 'multipart/related',
+        'Content-Encoding': 'gzip'
       },
       method: 'post',
-      body: JSON.stringify(payload)
+      body
     })
     if (response.status !== 200) {
       throw new Error('Could not get docs multipart')
@@ -155,7 +187,7 @@ class DocsGetter {
   }
 }
 
-export default class GetDocsTransformStream {
+class GetDocsTransformStream {
   constructor(db, { batchSize }) {
     const docsGetter = new DocsGetter(db, { batchSize })
     const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
@@ -178,8 +210,12 @@ export default class GetDocsTransformStream {
       }
     }, queueingStrategy)
   }
-
+  
   get docsRead () {
     return this.docsGetter.docsRead
   }
+}
+
+export default function getDocs (db, { batchSize } = {}) {
+  return new GetDocsTransformStream(db, { batchSize })
 }

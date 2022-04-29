@@ -1,6 +1,6 @@
 import { makeUuid } from '../utils.js'
-import GetDiffsTransformStream from './GetDiffsTransformStream.js'
-import SaveDocsWritableStream from './SaveDocsWritableStream.js'
+import getDiff from './getDiff.js'
+import saveDocs from './saveDocs.js'
 
 const DOC_STORE = 'docs'
 const META_STORE = 'meta'
@@ -70,10 +70,12 @@ export default class Local {
     })
   }
 
+  // TODO: make this private
   getDocStore (mode) {
     return this.db.transaction(DOC_STORE, mode).objectStore(DOC_STORE)
   }
 
+  // TODO: make this private
   getStores (mode) {
     const transaction =  this.db.transaction([DOC_STORE, META_STORE], mode)
     return {
@@ -107,6 +109,7 @@ export default class Local {
   }
 
   // used in replication
+  // TODO: use getDoc
   async getReplicationLog (id) {
     const _id = `_local/${id}`
     return new Promise((resolve, reject) => {
@@ -121,6 +124,7 @@ export default class Local {
   }
 
   // used in replication
+  // TODO: use saveDoc
   async saveReplicationLog (doc) {
     doc._rev = doc._rev ? doc._rev + 1 : 1
     return new Promise((resolve, reject) => {
@@ -134,40 +138,19 @@ export default class Local {
     })
   }
 
-  // used in push replication
-  async getChangesStream (since, { limit } = {}) {
-    throw new Error('Not supported for Local yet')
-  }
-  
-  // used in push replication
-  get lastSeq () {
+  getChanges (since, { limit } = {}) {
     throw new Error('Not supported for Local yet')
   }
 
-  // used in replication
-  getDiffsStream ({ batchSize } = { batchSize: 128 }) {
-    return new GetDiffsTransformStream(this, { batchSize })
+  getDiff ({ batchSize } = { batchSize: 128 }) {
+    return new getDiff(this, { batchSize })
   }
 
-  // used in push replication
-  getDocsStream ({ batchSize } = { batchSize: 512 }) {
+  getDocs ({ batchSize } = { batchSize: 512 }) {
     throw new Error('Not supported for Local yet')
   }
 
-  // used in push replication
-  get docsRead () {
-    throw new Error('Not supported for Local yet')
-  }
-
-  // used in replication
-  writeDocsStream ({ batchSize } = { batchSize: 128 }) {
-    this.saveStream = new SaveDocsWritableStream(this, { batchSize })
-    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
-    return new WritableStream(this.saveStream, queueingStrategy)
-  }
-
-  // used in replication
-  get docsWritten () {
-    return this.saveStream && this.saveStream.docsWritten
+  saveDocs ({ batchSize } = { batchSize: 128 }) {
+    return saveDocs(this, { batchSize })
   }
 }

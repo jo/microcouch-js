@@ -467,93 +467,65 @@ var calculateMd5 = async (blob) => {
 var makeUuid = () => {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 };
+var BatchingTransformStream = class extends TransformStream {
+  constructor({ batchSize }) {
+    super({
+      start() {
+      },
+      transform(entry, controller) {
+        this.entries.push(entry);
+        if (this.entries.length >= batchSize) {
+          const batch = this.entries.splice(0, batchSize);
+          controller.enqueue(batch);
+        }
+      },
+      flush(controller) {
+        if (this.entries.length > 0)
+          controller.enqueue(this.entries);
+      },
+      entries: []
+    }, { highWaterMark: 1 }, { highWaterMark: 1 });
+  }
+};
 
 // src/local/getDiff.js
-var GetDiffs = class {
-  constructor(db, { batchSize }) {
-    this.db = db;
-    this.batchSize = batchSize;
-    this.onDiff = null;
-    this.onClose = null;
-    this.changes = [];
-  }
-  addChange(change) {
-    this.changes.push(change);
-    return this.processDiffs();
-  }
-  close() {
-    return this.processDiffs(true);
-  }
-  async getDiff(changes) {
-    return new Promise((resolve, reject) => {
-      const store = this.db.getDocStore("readonly");
-      const revs = [];
-      let cnt = Object.keys(changes).length;
-      for (const id in changes) {
-        store.get(id).onsuccess = (e) => {
-          cnt--;
-          const entry = e.target.result;
-          for (const rev of changes[id]) {
-            const isPresent = entry && rev in entry.revs;
-            if (!isPresent) {
-              revs.push({ id, rev });
-            }
-          }
-          if (cnt === 0) {
-            resolve(revs);
-          }
-        };
-      }
-    });
-  }
-  async processDiffs(flush) {
-    if (!flush && this.changes.length < this.batchSize)
-      return;
-    if (this.changes.length === 0) {
-      if (flush)
-        this.onClose();
-      return;
-    }
-    let batch = [];
-    do {
-      batch = this.changes.splice(0, this.batchSize);
-      if (batch.length > 0) {
+var GetDiffsTransformStream = class extends TransformStream {
+  constructor(db) {
+    super({
+      start() {
+      },
+      async transform(batch, controller) {
         const revs = {};
         for (const { id, changes } of batch) {
           revs[id] = changes.map(({ rev }) => rev);
         }
-        const diff = await this.getDiff(revs);
-        for (const rev of diff) {
-          this.onDiff(rev);
-        }
-      }
-    } while (batch.length === this.batchSize);
-    if (flush)
-      this.onClose();
-  }
-};
-var GetDiffsTransformStream = class {
-  constructor(db, { batchSize }) {
-    const revsDiffsGetter = new GetDiffs(db, { batchSize });
-    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
-    this.readable = new ReadableStream({
-      start(controller) {
-        revsDiffsGetter.onDiff = (diff) => controller.enqueue(diff);
-        revsDiffsGetter.onClose = () => controller.close();
+        return new Promise((resolve, reject) => {
+          const store = db.getDocStore("readonly");
+          let cnt = Object.keys(revs).length;
+          for (const id in revs) {
+            store.get(id).onsuccess = (e) => {
+              cnt--;
+              const entry = e.target.result;
+              for (const rev of revs[id]) {
+                const isPresent = entry && rev in entry.revs;
+                if (!isPresent) {
+                  controller.enqueue({ id, rev });
+                }
+              }
+              if (cnt === 0) {
+                resolve();
+              }
+            };
+          }
+        });
+      },
+      flush() {
       }
     });
-    this.writable = new WritableStream({
-      write(change) {
-        return revsDiffsGetter.addChange(change);
-      },
-      close() {
-        return revsDiffsGetter.close();
-      }
-    }, queueingStrategy);
   }
 };
-function getDiff(db, { batchSize } = { batchSize: 128 }) {
-  return new GetDiffsTransformStream(db, { batchSize });
+function getDiff(db) {
+  return new GetDiffsTransformStream(db);
 }
 
 // src/local/model.js
@@ -986,18 +958,9 @@ var docToEntry = async (seq, doc, existingEntry, { newEdits } = { newEdits: true
 
 // src/local/saveDocs.js
 var DocsWriter = class {
-  constructor(db, { batchSize }) {
+  constructor(db) {
     this.db = db;
-    this.batchSize = batchSize;
-    this.docs = [];
     this.docsWritten = 0;
-  }
-  add(doc) {
-    this.docs.push(doc);
-    return this.processBatch();
-  }
-  close() {
-    return this.processBatch(true);
   }
   async getExistingEntries(docs) {
     return new Promise((resolve, reject) => {
@@ -1064,34 +1027,22 @@ var DocsWriter = class {
     const { entries, metadata } = await this.buildEntries(docsWithEntries, { seq, doc_count });
     return this.saveEntries(entries, metadata);
   }
-  async processBatch(flush) {
-    if (!flush && this.docs.length < this.batchSize)
-      return;
-    if (this.docs.length === 0) {
-      return;
-    }
-    let batch = [];
-    do {
-      batch = this.docs.splice(0, this.batchSize);
-      if (batch.length > 0) {
-        await this.saveDocs(batch);
+};
+var SaveDocsWritableStream = class extends WritableStream {
+  constructor(db, stats = {}) {
+    const docsWriter = new DocsWriter(db);
+    super({
+      write(docs) {
+        return docsWriter.saveDocs(docs);
+      },
+      close() {
+        stats.docsWritten = docsWriter.docsWritten;
       }
-    } while (batch.length === this.batchSize);
+    });
   }
 };
-function saveDocs(db, { batchSize } = { batchSize: 128 }) {
-  const docsWriter = new DocsWriter(db, { batchSize });
-  const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
-  const stream = new WritableStream({
-    write(doc) {
-      return docsWriter.add(doc);
-    },
-    close() {
-      stream.docsWritten = docsWriter.docsWritten;
-      return docsWriter.close();
-    }
-  }, queueingStrategy);
-  return stream;
+function saveDocs(db, stats = {}) {
+  return new SaveDocsWritableStream(db, stats);
 }
 
 // src/local/Local.js
@@ -1195,17 +1146,17 @@ var Local = class {
       this.getDocStore("readwrite").put(entry).onsuccess = () => resolve({ rev: doc._rev });
     });
   }
-  getChanges(since, { limit } = {}) {
+  getChanges(since, { limit } = {}, stats = {}) {
     throw new Error("Not supported for Local yet");
   }
-  getDiff({ batchSize } = { batchSize: 128 }) {
-    return new getDiff(this, { batchSize });
+  getDiff() {
+    return new getDiff(this);
   }
-  getDocs({ batchSize } = { batchSize: 512 }) {
+  getDocs(stats = {}) {
     throw new Error("Not supported for Local yet");
   }
-  saveDocs({ batchSize } = { batchSize: 128 }) {
-    return saveDocs(this, { batchSize });
+  saveDocs(stats = {}) {
+    return saveDocs(this, stats);
   }
 };
 
@@ -1221,74 +1172,53 @@ var nextSplitPosition = (data, offset = 0) => {
   }
   return [-1];
 };
-var ChangesUnpacker = class {
-  constructor() {
-    this.data = new Uint8Array(0);
-    this.onChange = null;
-    this.onClose = null;
-    this.decoder = new TextDecoder();
-    this.startParsed = false;
-    this.lastSeq = null;
-    this.numberOfChanges = 0;
-  }
-  addBinaryData(uint8Array) {
-    const newData = new Uint8Array(this.data.length + uint8Array.length);
-    newData.set(this.data, 0);
-    newData.set(uint8Array, this.data.length);
-    this.data = newData;
-    this.checkforChanges();
-  }
-  checkforChanges() {
-    if (!this.startParsed) {
-      this.data = this.data.slice(13);
-      this.startParsed = true;
-    }
-    let change;
-    do {
-      change = null;
-      const [endPosition, endReached] = nextSplitPosition(this.data);
-      if (endPosition === -1)
-        continue;
-      if (endPosition > 0) {
-        const json = this.decoder.decode(this.data.slice(0, endPosition + 1));
-        change = JSON.parse(json);
-        this.onChange(change);
-        this.numberOfChanges++;
-      }
-      if (endReached) {
-        const rest = this.decoder.decode(this.data.slice(endPosition + 4));
-        const { last_seq } = JSON.parse(`{${rest}`);
-        this.lastSeq = last_seq;
-        return this.onClose();
-      }
-      this.data = this.data.slice(endPosition + 4);
-    } while (change);
-  }
-};
-var ChangesParserTransformStream = class {
-  constructor() {
-    const unpacker = new ChangesUnpacker();
-    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
-    const readable = new ReadableStream({
-      start(controller) {
-        unpacker.onChange = (change) => controller.enqueue(change);
-        unpacker.onClose = () => {
-          readable.lastSeq = unpacker.lastSeq;
-          readable.numberOfChanges = unpacker.numberOfChanges;
-          controller.close();
-        };
-      }
+var ChangesParserTransformStream = class extends TransformStream {
+  constructor(stats = {}) {
+    stats.numberOfChanges = 0;
+    stats.lastSeq = null;
+    super({
+      start() {
+      },
+      transform(chunk, controller) {
+        const newData = new Uint8Array(this.data.length + chunk.length);
+        newData.set(this.data, 0);
+        newData.set(chunk, this.data.length);
+        this.data = newData;
+        if (!this.startParsed) {
+          this.data = this.data.slice(13);
+          this.startParsed = true;
+        }
+        let change;
+        do {
+          change = null;
+          const [endPosition, endReached] = nextSplitPosition(this.data);
+          if (endPosition === -1)
+            continue;
+          if (endPosition > 0) {
+            const json = this.decoder.decode(this.data.slice(0, endPosition + 1));
+            change = JSON.parse(json);
+            delete change.seq;
+            stats.numberOfChanges++;
+            controller.enqueue(change);
+          }
+          if (endReached) {
+            const rest = this.decoder.decode(this.data.slice(endPosition + 4));
+            const { last_seq } = JSON.parse(`{${rest}`);
+            stats.lastSeq = last_seq;
+            return;
+          }
+          this.data = this.data.slice(endPosition + 4);
+        } while (change);
+      },
+      flush() {
+      },
+      decoder: new TextDecoder(),
+      data: new Uint8Array(0),
+      startParsed: false
     });
-    this.readable = readable;
-    this.writable = new WritableStream({
-      write(uint8Array) {
-        unpacker.addBinaryData(uint8Array);
-      }
-    }, queueingStrategy);
-    this.unpacker = unpacker;
   }
 };
-async function getChanges(db, since, { limit } = {}) {
+async function getChanges(db, since, { limit } = {}, stats = {}) {
   const url = new URL(`${db.root}/_changes`, db.url);
   url.searchParams.set("feed", "normal");
   url.searchParams.set("style", "all_docs");
@@ -1305,22 +1235,21 @@ async function getChanges(db, since, { limit } = {}) {
   if (response.status !== 200) {
     throw new Error("Could not get changes");
   }
-  db.changesParserTransformStream = new ChangesParserTransformStream();
+  const changesParserTransformStream = new ChangesParserTransformStream(stats);
   const reader = response.body.getReader();
   const readableStream = new ReadableStream({
     async start(controller) {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) {
+        if (done)
           break;
-        }
         controller.enqueue(value);
       }
       controller.close();
       reader.releaseLock();
     }
   });
-  return readableStream.pipeThrough(db.changesParserTransformStream);
+  return readableStream.pipeThrough(changesParserTransformStream);
 }
 
 // node_modules/multipart-related/src/first-boundary-position.js
@@ -1493,160 +1422,128 @@ var gunzip = (blob, type) => {
   };
   return new Response(decompressedStream, responseOptions).blob();
 };
-var DocsGetter = class {
-  constructor(db, { batchSize }) {
-    this.db = db;
-    this.batchSize = batchSize;
-    this.decoder = new TextDecoder();
-    this.onDoc = null;
-    this.onClose = null;
-    this.revs = [];
-    this.docsRead = 0;
-  }
-  addRev(rev) {
-    this.revs.push(rev);
-    return this.getDocs();
-  }
-  close() {
-    return this.getDocs(true);
-  }
-  async getDocs(flush) {
-    if (!flush && this.revs.length < this.batchSize)
-      return;
-    if (this.revs.length === 0) {
-      if (flush)
-        this.onClose();
-      return;
+var assembleDoc = async (parts, { decoder }) => {
+  if (parts.length === 0)
+    return;
+  const { headers, data } = parts.shift();
+  const json = decoder.decode(data);
+  const doc = JSON.parse(json);
+  for (const { headers: headers2, data: data2 } of parts) {
+    const contentDisposition = headers2["Content-Disposition"];
+    if (!contentDisposition) {
+      console.warn("skipping attachment with missing Content-Disposition header", headers2, doc, parts);
+      continue;
     }
-    let batch = [];
-    do {
-      batch = this.revs.splice(0, this.batchSize);
-      if (batch.length > 0) {
-        await this.processBatch(batch);
-      }
-    } while (batch.length === this.batchSize);
-    if (flush)
-      this.onClose();
+    const [_, filename] = contentDisposition.match(/filename="([^"]+)"/);
+    if (!filename) {
+      console.warn('missing filename in Content-Disposition header "%s"', contentDisposition, headers2, doc, parts);
+      continue;
+    }
+    if (!(filename in doc._attachments)) {
+      console.warn('skipping attachment due to missing filename "%s" in docs attachments stub', filename, headers2, doc, parts);
+      continue;
+    }
+    const type = headers2["Content-Type"];
+    if (!type) {
+      console.warn("skipping attachment due to missing Content-Type header", headers2, doc, parts);
+      continue;
+    }
+    const blob = new Blob([data2], { type });
+    const contentEncoding = headers2["Content-Encoding"];
+    if (contentEncoding === "gzip") {
+      doc._attachments[filename].data = await gunzip(blob, type);
+      delete doc._attachments[filename].follows;
+      delete doc._attachments[filename].encoding;
+      delete doc._attachments[filename].encoded_length;
+    } else if (contentEncoding) {
+      console.warn("skipping attachment with unsupported Content-Encoding header %s", contentEncoding, headers2, doc, parts);
+      continue;
+    } else {
+      doc._attachments[filename].data = blob;
+      delete doc._attachments[filename].follows;
+    }
   }
-  async processBatch(batch) {
-    const response = await this.getDocsMultipart(batch);
-    const contentType = response.headers.get("Content-Type");
-    const parser = new MultipartRelated(contentType);
-    const reader = response.body.getReader();
-    let batchComplete = false;
-    let currentParts = [];
-    let currentBoundary = null;
-    do {
-      const { done, value } = await reader.read();
-      const parts = parser.read(value);
-      for (const part of parts) {
-        if (!part.boundary) {
-          await this.emitDoc(currentParts);
-          currentParts = [];
-          currentBoundary = null;
-          await this.emitDoc([part]);
-        } else if (currentBoundary && currentBoundary !== part.boundary) {
-          await this.emitDoc(currentParts);
-          currentParts = [part];
-          currentBoundary = null;
-        } else {
-          currentParts.push(part);
-          currentBoundary = part.boundary;
+  return doc;
+};
+var GetDocsTransformStream = class extends TransformStream {
+  constructor(db, stats) {
+    stats.docsRead = 0;
+    const decoder = new TextDecoder();
+    super({
+      start() {
+      },
+      async transform(docs, controller) {
+        const url = new URL(`${db.root}/_bulk_get`, db.url);
+        url.searchParams.set("revs", "true");
+        url.searchParams.set("attachments", "true");
+        const payload = { docs };
+        const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+        const body = await gzip(blob);
+        const response = await fetch(url, {
+          headers: {
+            ...db.headers,
+            "Content-Type": "application/json",
+            "Accept": "multipart/related",
+            "Content-Encoding": "gzip"
+          },
+          method: "post",
+          body
+        });
+        if (response.status !== 200) {
+          throw new Error("Could not get docs multipart");
         }
-      }
-      batchComplete = done;
-    } while (!batchComplete);
-    await this.emitDoc(currentParts);
-  }
-  async getDocsMultipart(revs) {
-    const url = new URL(`${this.db.root}/_bulk_get`, this.db.url);
-    url.searchParams.set("revs", "true");
-    url.searchParams.set("attachments", "true");
-    const payload = { docs: revs };
-    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-    const body = await gzip(blob);
-    const response = await fetch(url, {
-      headers: {
-        ...this.db.headers,
-        "Content-Type": "application/json",
-        "Accept": "multipart/related",
-        "Content-Encoding": "gzip"
+        const contentType = response.headers.get("Content-Type");
+        const parser = new MultipartRelated(contentType);
+        const reader = response.body.getReader();
+        let batchComplete = false;
+        let currentParts = [];
+        let currentBoundary = null;
+        let doc;
+        do {
+          const { done, value } = await reader.read();
+          const parts = parser.read(value);
+          for (const part of parts) {
+            if (!part.boundary) {
+              doc = await assembleDoc(currentParts, { decoder });
+              if (doc) {
+                controller.enqueue(doc);
+                stats.docsRead++;
+              }
+              currentParts = [];
+              currentBoundary = null;
+              doc = await assembleDoc([part], { decoder });
+              if (doc) {
+                controller.enqueue(doc);
+                stats.docsRead++;
+              }
+            } else if (currentBoundary && currentBoundary !== part.boundary) {
+              doc = await assembleDoc(currentParts, { decoder });
+              if (doc) {
+                controller.enqueue(doc);
+                stats.docsRead++;
+              }
+              currentParts = [part];
+              currentBoundary = null;
+            } else {
+              currentParts.push(part);
+              currentBoundary = part.boundary;
+            }
+          }
+          batchComplete = done;
+        } while (!batchComplete);
+        doc = await assembleDoc(currentParts, { decoder });
+        if (doc) {
+          controller.enqueue(doc);
+          stats.docsRead++;
+        }
       },
-      method: "post",
-      body
-    });
-    if (response.status !== 200) {
-      throw new Error("Could not get docs multipart");
-    }
-    return response;
-  }
-  async emitDoc(parts) {
-    if (parts.length === 0)
-      return;
-    const { headers, data } = parts.shift();
-    const json = this.decoder.decode(data);
-    const doc = JSON.parse(json);
-    for (const { headers: headers2, data: data2 } of parts) {
-      const contentDisposition = headers2["Content-Disposition"];
-      if (!contentDisposition) {
-        console.warn("skipping attachment with missing Content-Disposition header", headers2, doc, parts);
-        continue;
-      }
-      const [_, filename] = contentDisposition.match(/filename="([^"]+)"/);
-      if (!(filename in doc._attachments)) {
-        console.warn("skipping attachment due to missing filename in docs attachments stub", headers2, doc, parts);
-        continue;
-      }
-      const type = headers2["Content-Type"];
-      if (!type) {
-        console.warn("skipping attachment due to missing Content-Type header", headers2, doc, parts);
-        continue;
-      }
-      const blob = new Blob([data2], { type });
-      const contentEncoding = headers2["Content-Encoding"];
-      if (contentEncoding === "gzip") {
-        doc._attachments[filename].data = await gunzip(blob, type);
-        delete doc._attachments[filename].follows;
-        delete doc._attachments[filename].encoding;
-        delete doc._attachments[filename].encoded_length;
-      } else if (contentEncoding) {
-        console.warn("skipping attachment with unsupported Content-Encoding header", headers2, doc, parts);
-        continue;
-      } else {
-        doc._attachments[filename].data = blob;
-        delete doc._attachments[filename].follows;
-      }
-    }
-    this.docsRead++;
-    this.onDoc(doc);
-  }
-};
-var GetDocsTransformStream = class {
-  constructor(db, { batchSize }) {
-    const docsGetter = new DocsGetter(db, { batchSize });
-    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 });
-    this.docsGetter = docsGetter;
-    this.readable = new ReadableStream({
-      start(controller) {
-        docsGetter.onDoc = (diff) => controller.enqueue(diff);
-        docsGetter.onClose = () => controller.close();
+      flush() {
       }
     });
-    this.writable = new WritableStream({
-      write(rev) {
-        return docsGetter.addRev(rev);
-      },
-      close() {
-        return docsGetter.close();
-      }
-    }, queueingStrategy);
-  }
-  get docsRead() {
-    return this.docsGetter.docsRead;
   }
 };
-function getDocs(db, { batchSize } = {}) {
-  return new GetDocsTransformStream(db, { batchSize });
+function getDocs(db, stats = {}) {
+  return new GetDocsTransformStream(db, stats);
 }
 
 // src/remote/Remote.js
@@ -1706,16 +1603,16 @@ var Remote = class {
     }
     return response.json();
   }
-  getChanges(since, { limit } = {}) {
-    return getChanges(this, since, { limit });
+  getChanges(since, { limit } = {}, stats = {}) {
+    return getChanges(this, since, { limit }, stats);
   }
-  getDiff({ batchSize } = { batchSize: 128 }) {
+  getDiff() {
     throw new Error("Not supported for Remote yet");
   }
-  getDocs({ batchSize } = { batchSize: 512 }) {
-    return getDocs(this, { batchSize });
+  getDocs(stats = {}) {
+    return getDocs(this, stats);
   }
-  saveDocs({ batchSize } = { batchSize: 128 }) {
+  saveDocs(stats = {}) {
     throw new Error("Not supported for Remote yet");
   }
 };
@@ -1744,7 +1641,7 @@ async function replicate(source, target, {
     getChanges: 1024,
     getDiff: 128,
     getDocs: 512,
-    saveDocs: 128
+    saveDocs: 512
   }
 } = {}) {
   const sessionId = makeUuid();
@@ -1775,16 +1672,20 @@ async function replicate(source, target, {
   }
   let changesComplete = false;
   while (!changesComplete) {
-    const getcChanges = await source.getChanges(startSeq, { limit: batchSize.getChanges });
-    const getDiff2 = target.getDiff({ batchSize: batchSize.getDiff });
-    const getDocs2 = source.getDocs({ batchSize: batchSize.getDocs });
-    const saveDocs2 = target.saveDocs({ batchSize: batchSize.saveDocs });
-    await getcChanges.pipeThrough(getDiff2).pipeThrough(getDocs2).pipeTo(saveDocs2);
-    if (getcChanges.lastSeq !== startSeq) {
+    const batchStats = {};
+    const getChanges2 = await source.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats);
+    const getDiff2 = target.getDiff();
+    const getDocs2 = source.getDocs(batchStats);
+    const saveDocs2 = target.saveDocs(batchStats);
+    await getChanges2.pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff })).pipeThrough(getDiff2).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDocs })).pipeThrough(getDocs2).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveDocs })).pipeTo(saveDocs2);
+    stats.lastSeq = batchStats.lastSeq;
+    stats.docsRead += batchStats.docsRead;
+    stats.docsWritten += batchStats.docsWritten;
+    if (batchStats.lastSeq !== startSeq) {
       sourceLog.session_id = sessionId;
-      sourceLog.source_last_seq = getcChanges.lastSeq;
+      sourceLog.source_last_seq = batchStats.lastSeq;
       targetLog.session_id = sessionId;
-      targetLog.source_last_seq = getcChanges.lastSeq;
+      targetLog.source_last_seq = batchStats.lastSeq;
       const [
         { rev: targetLogRev },
         { rev: sourceLogRev }
@@ -1795,11 +1696,8 @@ async function replicate(source, target, {
       targetLog._rev = targetLogRev;
       sourceLog._rev = sourceLogRev;
     }
-    stats.lastSeq = getcChanges.lastSeq;
-    stats.docsRead += getDocs2.docsRead;
-    stats.docsWritten += saveDocs2.docsWritten;
-    startSeq = getcChanges.lastSeq;
-    changesComplete = getcChanges.numberOfChanges < batchSize.getChanges || compareSeqs(getcChanges.lastSeq, remoteSeq) >= 0;
+    startSeq = batchStats.lastSeq;
+    changesComplete = batchStats.numberOfChanges < batchSize.getChanges || compareSeqs(batchStats.lastSeq, remoteSeq) >= 0;
   }
   return stats;
 }

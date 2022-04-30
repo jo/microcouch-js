@@ -10,94 +10,63 @@ const nextSplitPosition = (data, offset = 0) => {
   return [-1]
 }
 
-class ChangesUnpacker {
-  constructor() {
-    this.data = new Uint8Array(0)
+class ChangesParserTransformStream extends TransformStream {
+  constructor (stats = {}) {
+    stats.numberOfChanges = 0
+    stats.lastSeq = null
 
-    this.onChange = null
-    this.onClose = null
+    super({
+      start () {},
 
-    this.decoder = new TextDecoder()
+      transform (chunk, controller) {
+        const newData = new Uint8Array(this.data.length + chunk.length)
+        newData.set(this.data, 0)
+        newData.set(chunk, this.data.length)
+        this.data = newData
 
-    // state
-    this.startParsed = false
-    this.lastSeq = null
-    this.numberOfChanges = 0
-  }
-
-  addBinaryData(uint8Array) {
-    const newData = new Uint8Array(this.data.length + uint8Array.length)
-    newData.set(this.data, 0)
-    newData.set(uint8Array, this.data.length)
-    this.data = newData
-
-    this.checkforChanges()
-  }
-
-  checkforChanges() {
-    if (!this.startParsed) {
-      // remove the start: `{"results":[\n`
-      this.data = this.data.slice(13)
-      this.startParsed = true
-    }
-
-    let change
-    do {
-      change = null
-
-      const [endPosition, endReached] = nextSplitPosition(this.data)
-      if (endPosition === -1) continue
-
-      if (endPosition > 0) {
-        const json = this.decoder.decode(this.data.slice(0, endPosition + 1))
-        change = JSON.parse(json)
-        this.onChange(change)
-        this.numberOfChanges++
-      }
-
-      if (endReached) {
-        const rest = this.decoder.decode(this.data.slice(endPosition + 4))
-        const { last_seq } = JSON.parse(`{${rest}`)
-        this.lastSeq = last_seq
-        return this.onClose()
-      }
-
-      this.data = this.data.slice(endPosition + 4)
-    } while (change)
-  }
-}
-
-// TODO: extend TransformStream instead
-class ChangesParserTransformStream {
-  constructor() {
-    const unpacker = new ChangesUnpacker()
-    const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
-
-    const readable = new ReadableStream({
-      start(controller) {
-        unpacker.onChange = change => controller.enqueue(change)
-        unpacker.onClose = () => {
-          // store stats
-          readable.lastSeq = unpacker.lastSeq
-          readable.numberOfChanges = unpacker.numberOfChanges
-
-          controller.close()
+        if (!this.startParsed) {
+          // remove the start: `{"results":[\n`
+          this.data = this.data.slice(13)
+          this.startParsed = true
         }
-      }
+
+        let change
+        do {
+          change = null
+
+          const [endPosition, endReached] = nextSplitPosition(this.data)
+          if (endPosition === -1) continue
+
+          if (endPosition > 0) {
+            const json = this.decoder.decode(this.data.slice(0, endPosition + 1))
+            change = JSON.parse(json)
+            // clean up seq: null
+            delete change.seq
+            stats.numberOfChanges++
+            controller.enqueue(change)
+          }
+
+          if (endReached) {
+            const rest = this.decoder.decode(this.data.slice(endPosition + 4))
+            const { last_seq } = JSON.parse(`{${rest}`)
+            stats.lastSeq = last_seq
+            return
+          }
+
+          this.data = this.data.slice(endPosition + 4)
+        } while (change)
+      },
+      
+      flush () {},
+
+      decoder: new TextDecoder(),
+      data: new Uint8Array(0),
+      startParsed: false
     })
-    this.readable = readable
-
-    this.writable = new WritableStream({
-      write(uint8Array) {
-        unpacker.addBinaryData(uint8Array)
-      }
-    }, queueingStrategy)
-
-    this.unpacker = unpacker
   }
 }
 
-export default async function getChanges (db, since, { limit } = {}) {
+export default async function getChanges (db, since, { limit } = {}, stats = {}) {
   const url = new URL(`${db.root}/_changes`, db.url)
   url.searchParams.set('feed', 'normal')
   url.searchParams.set('style', 'all_docs')
@@ -116,7 +85,7 @@ export default async function getChanges (db, since, { limit } = {}) {
     throw new Error('Could not get changes')
   }
 
-  db.changesParserTransformStream = new ChangesParserTransformStream()
+  const changesParserTransformStream = new ChangesParserTransformStream(stats)
 
   // create a new ReadableStream out of the response
   // in order to get it polyfilled
@@ -125,19 +94,14 @@ export default async function getChanges (db, since, { limit } = {}) {
     async start(controller) {
       while (true) {
         const { done, value } = await reader.read()
-
-        if (done) {
-          break
-        }
-
+        if (done) break
         controller.enqueue(value)
       }
-
       controller.close()
       reader.releaseLock()
     }
   })
   
   return readableStream
-    .pipeThrough(db.changesParserTransformStream)
+    .pipeThrough(changesParserTransformStream)
 }

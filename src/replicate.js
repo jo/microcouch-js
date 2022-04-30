@@ -1,6 +1,6 @@
 import SparkMD5 from 'spark-md5'
 
-import { makeUuid } from './utils.js'
+import { makeUuid, BatchingTransformStream } from './utils.js'
 
 // generate replication log id from local and remote uuids
 const generateReplicationLogId = async (localId, remoteId) => {
@@ -32,7 +32,7 @@ export default async function replicate(source, target, {
     getChanges: 1024,
     getDiff: 128,
     getDocs: 512,
-    saveDocs: 128
+    saveDocs: 512
   } 
 } = {}) {
   const sessionId = makeUuid()
@@ -76,17 +76,19 @@ export default async function replicate(source, target, {
 
   let changesComplete = false
   while (!changesComplete) {
-    const getcChanges = await source.getChanges(startSeq, { limit: batchSize.getChanges })
-    const getDiff = target.getDiff({ batchSize: batchSize.getDiff })
-    const getDocs = source.getDocs({ batchSize: batchSize.getDocs })
-    const saveDocs = target.saveDocs({ batchSize: batchSize.saveDocs })
+    const batchStats = {}
+
+    const getChanges = await source.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats)
+    const getDiff = target.getDiff()
+    const getDocs = source.getDocs(batchStats)
+    const saveDocs = target.saveDocs(batchStats)
 
     // const logger = new WritableStream({
     //   write (data) {
     //     console.log(data)
     //   },
     //   close () {
-    //     console.log('closed.')
+    //     console.log('complete.')
     //   }
     // })
 
@@ -95,17 +97,28 @@ export default async function replicate(source, target, {
     // 2. get diffs from target
     // 3. get docs from source
     // 4. save docs to target
-    await getcChanges
+    await getChanges
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff }))
       .pipeThrough(getDiff)
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDocs }))
       .pipeThrough(getDocs)
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveDocs }))
       .pipeTo(saveDocs)
 
+    // collect stats
+    stats.lastSeq = batchStats.lastSeq
+    stats.docsRead += batchStats.docsRead
+    stats.docsWritten += batchStats.docsWritten
+
+    // changesComplete = true
+    // continue
+
     // store replication logs only if there was a change
-    if (getcChanges.lastSeq !== startSeq) {
+    if (batchStats.lastSeq !== startSeq) {
       sourceLog.session_id = sessionId
-      sourceLog.source_last_seq = getcChanges.lastSeq
+      sourceLog.source_last_seq = batchStats.lastSeq
       targetLog.session_id = sessionId
-      targetLog.source_last_seq = getcChanges.lastSeq
+      targetLog.source_last_seq = batchStats.lastSeq
       
       const [
         { rev: targetLogRev },
@@ -118,18 +131,13 @@ export default async function replicate(source, target, {
       sourceLog._rev = sourceLogRev
     }
     
-    // collect stats
-    stats.lastSeq = getcChanges.lastSeq
-    stats.docsRead += getDocs.docsRead
-    stats.docsWritten += saveDocs.docsWritten
-
     // set next batch start seq
-    startSeq = getcChanges.lastSeq
+    startSeq = batchStats.lastSeq
 
     // exit condition:
     // * either retrieved less changes than limit
     // * or reached the remote seq
-    changesComplete = getcChanges.numberOfChanges < batchSize.getChanges || compareSeqs(getcChanges.lastSeq, remoteSeq) >= 0
+    changesComplete = batchStats.numberOfChanges < batchSize.getChanges || compareSeqs(batchStats.lastSeq, remoteSeq) >= 0
   }
     
   return stats

@@ -22,3 +22,27 @@ export const makeUuid = () => {
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
   )
 }
+
+
+export class BatchingTransformStream extends TransformStream {
+  constructor ({ batchSize }) {
+    // TODO: make highWaterMarks configurable
+    super({
+      start () {},
+
+      transform (entry, controller) {
+        this.entries.push(entry)
+        if (this.entries.length >= batchSize) {
+          const batch = this.entries.splice(0, batchSize)
+          controller.enqueue(batch)
+        }
+      },
+      
+      flush (controller) {
+        if (this.entries.length > 0) controller.enqueue(this.entries)
+      },
+
+      entries: []
+    }, { highWaterMark: 1 }, { highWaterMark: 1 })
+  }
+}

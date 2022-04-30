@@ -1,21 +1,10 @@
 import { docToEntry } from './model.js'
 
 class DocsWriter {
-  constructor (db, { batchSize }) {
+  constructor (db) {
     this.db = db
-    this.batchSize = batchSize
 
-    this.docs = []
     this.docsWritten = 0
-  }
-
-  add (doc) {
-    this.docs.push(doc)
-    return this.processBatch()
-  }
-
-  close () {
-    return this.processBatch(true)
   }
 
   async getExistingEntries (docs) {
@@ -84,44 +73,29 @@ class DocsWriter {
     })
   }
 
-  // this (and the above) could maybe go into a bulkDocs method on Local
   async saveDocs (docs) {
     const docsWithEntries = await this.getExistingEntries(docs)
     const { seq, doc_count } = this.db.metadata
     const { entries, metadata } = await this.buildEntries(docsWithEntries, { seq, doc_count })
     return this.saveEntries(entries, metadata)
   }
+}
 
-  async processBatch (flush) {
-    if (!flush && this.docs.length < this.batchSize) return
-    if (this.docs.length === 0) {
-      return
-    }
+class SaveDocsWritableStream extends WritableStream {
+  constructor (db, stats = {}) {
+    const docsWriter = new DocsWriter(db)
 
-    let batch = []
-    do {
-      batch = this.docs.splice(0, this.batchSize)
-      if (batch.length > 0) {
-        await this.saveDocs(batch)
+    super({
+      write (docs) {
+        return docsWriter.saveDocs(docs)
+      },
+      close () {
+        stats.docsWritten = docsWriter.docsWritten
       }
-    } while (batch.length === this.batchSize)
+    })
   }
 }
 
-export default function saveDocs (db, { batchSize } = { batchSize: 128 }) {
-  const docsWriter = new DocsWriter(db, { batchSize })
-
-  const queueingStrategy = new CountQueuingStrategy({ highWaterMark: 1 })
-  // TODO: extend WritableStream instead
-  const stream = new WritableStream({
-    write (doc) {
-      return docsWriter.add(doc)
-    },
-    close () {
-      stream.docsWritten = docsWriter.docsWritten
-      return docsWriter.close()
-    }
-  }, queueingStrategy)
-
-  return stream
+export default function saveDocs (db, stats = {}) {
+  return new SaveDocsWritableStream(db, stats)
 }

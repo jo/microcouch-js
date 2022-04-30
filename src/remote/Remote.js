@@ -78,20 +78,20 @@ export default class Remote {
   }
 
   // get stream of changes
-  getChanges (since, { limit } = {}) {
-    return getChanges(this, since, { limit })
+  getChanges (since, { limit } = {}, stats = {}) {
+    return getChanges(this, since, { limit }, stats)
   }
 
-  getDiff ({ batchSize } = { batchSize: 128 }) {
+  getDiff () {
     throw new Error('Not supported for Remote yet')
   }
 
   // get a stream of docs
-  getDocs ({ batchSize } = { batchSize: 512 }) {
-    return getDocs(this, { batchSize })
+  getDocs (stats = {}) {
+    return getDocs(this, stats)
   }
 
-  saveDocs ({ batchSize } = { batchSize: 128 }) {
+  saveDocs (stats = {}) {
     throw new Error('Not supported for Remote yet')
   }
 }

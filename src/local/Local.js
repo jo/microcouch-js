@@ -134,19 +134,19 @@ export default class Local {
     })
   }
 
-  getChanges (since, { limit } = {}) {
+  getChanges (since, { limit } = {}, stats = {}) {
     throw new Error('Not supported for Local yet')
   }
 
-  getDiff ({ batchSize } = { batchSize: 128 }) {
-    return new getDiff(this, { batchSize })
+  getDiff () {
+    return new getDiff(this)
   }
 
-  getDocs ({ batchSize } = { batchSize: 512 }) {
+  getDocs (stats = {}) {
     throw new Error('Not supported for Local yet')
   }
 
-  saveDocs ({ batchSize } = { batchSize: 128 }) {
-    return saveDocs(this, { batchSize })
+  saveDocs (stats = {}) {
+    return saveDocs(this, stats)
   }
 }

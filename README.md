@@ -11,7 +11,7 @@ Focus is on a small set of functionality:
 * get by id range (like allDocs)
 * changes feed
 * no map/reduce
-* attachment support
+* attachment support (blob only, no base64)
 * indexeddb only
 * modern browsers (also no node support)
 * modern web standards

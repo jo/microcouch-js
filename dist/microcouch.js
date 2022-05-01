@@ -450,85 +450,7 @@ var require_spark_md5 = __commonJS({
   }
 });
 
-// src/utils.js
-var import_spark_md5 = __toESM(require_spark_md5(), 1);
-var MD5_CHUNK_SIZE = 32768;
-var calculateMd5 = async (blob) => {
-  const chunkSize = Math.min(MD5_CHUNK_SIZE, blob.size);
-  const chunks = Math.ceil(blob.size / chunkSize);
-  const md5 = new import_spark_md5.default.ArrayBuffer();
-  for (let i = 0; i < chunks; i++) {
-    const part = blob.slice(i * chunkSize, (i + 1) * chunkSize);
-    const arrayBuffer = await part.arrayBuffer();
-    md5.append(arrayBuffer);
-  }
-  return md5.end(true);
-};
-var makeUuid = () => {
-  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
-};
-var BatchingTransformStream = class extends TransformStream {
-  constructor({ batchSize }) {
-    super({
-      start() {
-      },
-      transform(entry, controller) {
-        this.entries.push(entry);
-        if (this.entries.length >= batchSize) {
-          const batch = this.entries.splice(0, batchSize);
-          controller.enqueue(batch);
-        }
-      },
-      flush(controller) {
-        if (this.entries.length > 0)
-          controller.enqueue(this.entries);
-      },
-      entries: []
-    }, { highWaterMark: 1 }, { highWaterMark: 1 });
-  }
-};
-
-// src/local/getDiff.js
-var GetDiffsTransformStream = class extends TransformStream {
-  constructor(db) {
-    super({
-      start() {
-      },
-      async transform(batch, controller) {
-        const revs = {};
-        for (const { id, changes } of batch) {
-          revs[id] = changes.map(({ rev }) => rev);
-        }
-        return new Promise((resolve, reject) => {
-          const store = db.getDocStore("readonly");
-          let cnt = Object.keys(revs).length;
-          for (const id in revs) {
-            store.get(id).onsuccess = (e) => {
-              cnt--;
-              const entry = e.target.result;
-              for (const rev of revs[id]) {
-                const isPresent = entry && rev in entry.revs;
-                if (!isPresent) {
-                  controller.enqueue({ id, rev });
-                }
-              }
-              if (cnt === 0) {
-                resolve();
-              }
-            };
-          }
-        });
-      },
-      flush() {
-      }
-    });
-  }
-};
-function getDiff(db) {
-  return new GetDiffsTransformStream(db);
-}
-
-// src/local/model.js
+// src/local/Database.js
 var import_spark_md52 = __toESM(require_spark_md5(), 1);
 
 // node_modules/pouchdb-merge/lib/index.es.js
@@ -789,7 +711,62 @@ function merge(tree, path, depth) {
   };
 }
 
-// src/local/model.js
+// src/utils.js
+var import_spark_md5 = __toESM(require_spark_md5(), 1);
+var MD5_CHUNK_SIZE = 32768;
+var calculateMd5 = async (blob) => {
+  const chunkSize = Math.min(MD5_CHUNK_SIZE, blob.size);
+  const chunks = Math.ceil(blob.size / chunkSize);
+  const md5 = new import_spark_md5.default.ArrayBuffer();
+  for (let i = 0; i < chunks; i++) {
+    const part = blob.slice(i * chunkSize, (i + 1) * chunkSize);
+    const arrayBuffer = await part.arrayBuffer();
+    md5.append(arrayBuffer);
+  }
+  return md5.end(true);
+};
+var makeUuid = () => {
+  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
+};
+var BatchingTransformStream = class extends TransformStream {
+  constructor({ batchSize }) {
+    super({
+      start() {
+      },
+      transform(entry, controller) {
+        this.entries.push(entry);
+        if (this.entries.length >= batchSize) {
+          const batch = this.entries.splice(0, batchSize);
+          controller.enqueue(batch);
+        }
+      },
+      flush(controller) {
+        if (this.entries.length > 0)
+          controller.enqueue(this.entries);
+      },
+      entries: []
+    });
+  }
+};
+var gzip = (blob) => {
+  const ds = new CompressionStream("gzip");
+  const compressedStream = blob.stream().pipeThrough(ds);
+  return new Response(compressedStream).blob();
+};
+var gunzip = (blob, type) => {
+  const ds = new DecompressionStream("gzip");
+  const decompressedStream = blob.stream().pipeThrough(ds);
+  const responseOptions = {
+    headers: {
+      "Content-Type": type
+    }
+  };
+  return new Response(decompressedStream, responseOptions).blob();
+};
+
+// src/local/Database.js
+var DOC_STORE = "docs";
+var META_STORE = "meta";
 var REVS_LIMIT = 1e3;
 var STATUS_AVAILABLE = { status: "available" };
 var STATUS_MISSING = { status: "missing" };
@@ -955,100 +932,7 @@ var docToEntry = async (seq, doc, existingEntry, { newEdits } = { newEdits: true
     seq
   };
 };
-
-// src/local/saveDocs.js
-var DocsWriter = class {
-  constructor(db) {
-    this.db = db;
-    this.docsWritten = 0;
-  }
-  async getExistingEntries(docs) {
-    return new Promise((resolve, reject) => {
-      const readDocStore = this.db.getDocStore("readonly");
-      let cnt = docs.length;
-      const items = [];
-      for (const doc of docs) {
-        const item = { doc };
-        readDocStore.get(doc._id).onsuccess = async (e) => {
-          cnt--;
-          item.existingEntry = e.target.result;
-          items.push(item);
-          if (cnt === 0) {
-            resolve(items);
-          }
-        };
-      }
-    });
-  }
-  async buildEntries(docsWithEntries, metadata) {
-    const entries = [];
-    for (const { doc, existingEntry } of docsWithEntries) {
-      const seq = ++metadata.seq;
-      const entry = await docToEntry(seq, doc, existingEntry, { newEdits: false });
-      let delta;
-      const { deleted } = entry;
-      if (existingEntry) {
-        if (existingEntry.deleted) {
-          delta = deleted ? 0 : 1;
-        } else {
-          delta = deleted ? -1 : 0;
-        }
-      } else {
-        delta = deleted ? 0 : 1;
-      }
-      metadata.doc_count += delta;
-      entries.push(entry);
-    }
-    return {
-      entries,
-      metadata
-    };
-  }
-  async saveEntries(entries, { seq, doc_count }) {
-    return new Promise((resolve, reject) => {
-      const { docStore, metaStore } = this.db.getStores("readwrite");
-      let cnt = entries.length;
-      for (const entry of entries) {
-        docStore.put(entry).onsuccess = () => {
-          this.docsWritten++;
-          cnt--;
-          if (cnt === 0) {
-            this.db.metadata.seq = seq;
-            this.db.metadata.doc_count = doc_count;
-            metaStore.put(this.db.metadata).onsuccess = () => resolve();
-          }
-        };
-      }
-    });
-  }
-  async saveDocs(docs) {
-    const docsWithEntries = await this.getExistingEntries(docs);
-    const { seq, doc_count } = this.db.metadata;
-    const { entries, metadata } = await this.buildEntries(docsWithEntries, { seq, doc_count });
-    return this.saveEntries(entries, metadata);
-  }
-};
-var SaveDocsWritableStream = class extends WritableStream {
-  constructor(db, stats = {}) {
-    const docsWriter = new DocsWriter(db);
-    super({
-      write(docs) {
-        return docsWriter.saveDocs(docs);
-      },
-      close() {
-        stats.docsWritten = docsWriter.docsWritten;
-      }
-    });
-  }
-};
-function saveDocs(db, stats = {}) {
-  return new SaveDocsWritableStream(db, stats);
-}
-
-// src/local/Local.js
-var DOC_STORE = "docs";
-var META_STORE = "meta";
-var Local = class {
+var Database = class {
   constructor({ name }) {
     this.name = name;
     this.db = null;
@@ -1097,16 +981,6 @@ var Local = class {
       openReq.onblocked = (e) => reject(e);
     });
   }
-  getDocStore(mode) {
-    return this.db.transaction(DOC_STORE, mode).objectStore(DOC_STORE);
-  }
-  getStores(mode) {
-    const transaction = this.db.transaction([DOC_STORE, META_STORE], mode);
-    return {
-      docStore: transaction.objectStore(DOC_STORE),
-      metaStore: transaction.objectStore(META_STORE)
-    };
-  }
   destroy() {
     return new Promise((resolve, reject) => {
       this.db.close();
@@ -1118,139 +992,222 @@ var Local = class {
       };
     });
   }
-  getUuid() {
-    const { db_uuid } = this.metadata;
-    return db_uuid;
-  }
-  getUpdateSeq() {
-    const { seq } = this.metadata;
-    return seq;
-  }
-  async getReplicationLog(id) {
+  getLocalDoc(id) {
     const _id = `_local/${id}`;
     return new Promise((resolve, reject) => {
-      this.getDocStore("readonly").get(_id).onsuccess = (e) => {
+      this.db.transaction(DOC_STORE, "readonly").objectStore(DOC_STORE).get(_id).onsuccess = (e) => {
         const entry = e.target.result;
         const doc = entry ? entry.data : { _id };
         resolve(doc);
       };
     });
   }
-  async saveReplicationLog(doc) {
+  saveLocalDoc(doc) {
     doc._rev = doc._rev ? doc._rev + 1 : 1;
     return new Promise((resolve, reject) => {
       const entry = {
         id: doc._id,
         data: doc
       };
-      this.getDocStore("readwrite").put(entry).onsuccess = () => resolve({ rev: doc._rev });
+      this.db.transaction(DOC_STORE, "readwrite").objectStore(DOC_STORE).put(entry).onsuccess = () => resolve({ rev: doc._rev });
     });
+  }
+  getDocStore(mode) {
+    return this.db.transaction(DOC_STORE, mode).objectStore(DOC_STORE);
+  }
+  async buildEntries(docsWithEntries) {
+    const entries = [];
+    for (const { doc, existingEntry } of docsWithEntries) {
+      const seq = ++this.metadata.seq;
+      const entry = await docToEntry(seq, doc, existingEntry, { newEdits: false });
+      let delta;
+      const { deleted } = entry;
+      if (existingEntry) {
+        if (existingEntry.deleted) {
+          delta = deleted ? 0 : 1;
+        } else {
+          delta = deleted ? -1 : 0;
+        }
+      } else {
+        delta = deleted ? 0 : 1;
+      }
+      this.metadata.doc_count += delta;
+      entries.push(entry);
+    }
+    return entries;
+  }
+  async saveEntries(entries) {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([DOC_STORE, META_STORE], "readwrite");
+      const docStore = transaction.objectStore(DOC_STORE);
+      const metaStore = transaction.objectStore(META_STORE);
+      let docsWritten = 0;
+      let cnt = entries.length;
+      for (const entry of entries) {
+        docStore.put(entry).onsuccess = () => {
+          docsWritten++;
+          cnt--;
+          if (cnt === 0) {
+            metaStore.put(this.metadata).onsuccess = () => resolve(docsWritten);
+          }
+        };
+      }
+    });
+  }
+  async saveDocs(docsWithEntries) {
+    const entries = await this.buildEntries(docsWithEntries);
+    return this.saveEntries(entries);
+  }
+};
+
+// src/local/Replicator.js
+var FilterMissingRevsTransformStream = class extends TransformStream {
+  constructor(database) {
+    super({
+      start() {
+      },
+      async transform(batchOfChanges, controller) {
+        return new Promise((resolve, reject) => {
+          const store = database.getDocStore("readonly");
+          let cnt = batchOfChanges.length;
+          for (const change of batchOfChanges) {
+            const { id, revs } = change;
+            store.get(id).onsuccess = (e) => {
+              cnt--;
+              const entry = e.target.result;
+              if (entry) {
+                controller.enqueue({
+                  id,
+                  revs: revs.filter((rev) => rev in entry.revs),
+                  entry
+                });
+              } else {
+                controller.enqueue({ id, revs });
+              }
+              if (cnt === 0) {
+                resolve();
+              }
+            };
+          }
+        });
+      },
+      flush() {
+      }
+    });
+  }
+};
+var SaveDocsWritableStream = class extends WritableStream {
+  constructor(database, stats = {}) {
+    super({
+      async write(docs) {
+        this.docsWritten += await database.saveDocs(docs);
+      },
+      close() {
+      },
+      docsWritten: 0
+    });
+  }
+};
+var Replicator = class {
+  constructor(database) {
+    this.database = database;
+  }
+  getUuid() {
+    const { db_uuid } = this.database.metadata;
+    return db_uuid;
+  }
+  getUpdateSeq() {
+    const { seq } = this.database.metadata;
+    return seq;
+  }
+  getReplicationLog(id) {
+    return this.database.getLocalDoc(id);
+  }
+  saveReplicationLog(doc) {
+    return this.database.saveLocalDoc(doc);
   }
   getChanges(since, { limit } = {}, stats = {}) {
     throw new Error("Not supported for Local yet");
   }
-  getDiff() {
-    return new getDiff(this);
+  filterMissingRevs() {
+    return new FilterMissingRevsTransformStream(this.database);
   }
   getDocs(stats = {}) {
     throw new Error("Not supported for Local yet");
   }
   saveDocs(stats = {}) {
-    return saveDocs(this, stats);
+    return new SaveDocsWritableStream(this.database, stats);
   }
 };
 
-// src/remote/getChanges.js
-var nextSplitPosition = (data, offset = 0) => {
-  if (offset > data.length + 4)
-    return [-1];
-  for (let i = offset; i < data.length; i++) {
-    if (data[i] === 125 && data[i + 1] === 44 && data[i + 2] === 13 && data[i + 3] === 10 && data[i + 4] === 123)
-      return [i];
-    if (data[i] === 10 && data[i + 1] === 93 && data[i + 2] === 44)
-      return [i, true];
+// src/local/Local.js
+var Local = class {
+  constructor({ name }) {
+    this.database = new Database({ name });
+    this.replicator = new Replicator(this.database);
   }
-  return [-1];
+  init() {
+    return this.database.init();
+  }
+  destroy() {
+    return this.database.destroy();
+  }
 };
-var ChangesParserTransformStream = class extends TransformStream {
-  constructor(stats = {}) {
-    stats.numberOfChanges = 0;
-    stats.lastSeq = null;
-    super({
-      start() {
-      },
-      transform(chunk, controller) {
-        const newData = new Uint8Array(this.data.length + chunk.length);
-        newData.set(this.data, 0);
-        newData.set(chunk, this.data.length);
-        this.data = newData;
-        if (!this.startParsed) {
-          this.data = this.data.slice(13);
-          this.startParsed = true;
-        }
-        let change;
-        do {
-          change = null;
-          const [endPosition, endReached] = nextSplitPosition(this.data);
-          if (endPosition === -1)
-            continue;
-          if (endPosition > 0) {
-            const json = this.decoder.decode(this.data.slice(0, endPosition + 1));
-            change = JSON.parse(json);
-            delete change.seq;
-            stats.numberOfChanges++;
-            controller.enqueue(change);
-          }
-          if (endReached) {
-            const rest = this.decoder.decode(this.data.slice(endPosition + 4));
-            const { last_seq } = JSON.parse(`{${rest}`);
-            stats.lastSeq = last_seq;
-            return;
-          }
-          this.data = this.data.slice(endPosition + 4);
-        } while (change);
-      },
-      flush() {
-      },
-      decoder: new TextDecoder(),
-      data: new Uint8Array(0),
-      startParsed: false
+
+// src/remote/Database.js
+var Database2 = class {
+  constructor({ url, headers }) {
+    this.url = url;
+    this.root = url.pathname;
+    this.headers = headers;
+  }
+  async getServerInfo() {
+    const url = new URL(this.url);
+    url.pathname = "/";
+    const response = await fetch(url, {
+      headers: this.headers
     });
+    if (response.status !== 200) {
+      throw new Error("Remote server not reachable");
+    }
+    return response.json();
+  }
+  async getInfo() {
+    const url = new URL(this.url);
+    const response = await fetch(url, {
+      headers: this.headers
+    });
+    if (response.status !== 200) {
+      throw new Error("Remote database not reachable");
+    }
+    return response.json();
+  }
+  async getDoc(id) {
+    const url = new URL(`${this.root}/${id}`, this.url);
+    const response = await fetch(url, {
+      headers: this.headers
+    });
+    if (response.status !== 200) {
+      throw new Error("Could not get doc");
+    }
+    return response.json();
+  }
+  async saveDoc(doc) {
+    const url = new URL(`${this.root}/${doc._id}`, this.url);
+    const response = await fetch(url, {
+      headers: {
+        ...this.headers,
+        "Content-Type": "application/json"
+      },
+      method: "put",
+      body: JSON.stringify(doc)
+    });
+    if (response.status !== 201) {
+      throw new Error("Could not save doc");
+    }
+    return response.json();
   }
 };
-async function getChanges(db, since, { limit } = {}, stats = {}) {
-  const url = new URL(`${db.root}/_changes`, db.url);
-  url.searchParams.set("feed", "normal");
-  url.searchParams.set("style", "all_docs");
-  if (since) {
-    url.searchParams.set("since", since);
-  }
-  if (limit) {
-    url.searchParams.set("limit", limit);
-    url.searchParams.set("seq_interval", limit);
-  }
-  const response = await fetch(url, {
-    headers: db.headers
-  });
-  if (response.status !== 200) {
-    throw new Error("Could not get changes");
-  }
-  const changesParserTransformStream = new ChangesParserTransformStream(stats);
-  const reader = response.body.getReader();
-  const readableStream = new ReadableStream({
-    async start(controller) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done)
-          break;
-        controller.enqueue(value);
-      }
-      controller.close();
-      reader.releaseLock();
-    }
-  });
-  return readableStream.pipeThrough(changesParserTransformStream);
-}
 
 // node_modules/multipart-related/src/first-boundary-position.js
 function firstBoundaryPosition(data, boundary, offset = 0) {
@@ -1406,21 +1363,68 @@ var MultipartRelated = class {
   }
 };
 
-// src/remote/getDocs.js
-var gzip = (blob) => {
-  const ds = new CompressionStream("gzip");
-  const compressedStream = blob.stream().pipeThrough(ds);
-  return new Response(compressedStream).blob();
+// src/remote/Replicator.js
+var nextSplitPosition = (data, offset = 0) => {
+  if (offset > data.length + 4)
+    return [-1];
+  for (let i = offset; i < data.length; i++) {
+    if (data[i] === 125 && data[i + 1] === 44 && data[i + 2] === 13 && data[i + 3] === 10 && data[i + 4] === 123)
+      return [i];
+    if (data[i] === 10 && data[i + 1] === 93 && data[i + 2] === 44)
+      return [i, true];
+  }
+  return [-1];
 };
-var gunzip = (blob, type) => {
-  const ds = new DecompressionStream("gzip");
-  const decompressedStream = blob.stream().pipeThrough(ds);
-  const responseOptions = {
-    headers: {
-      "Content-Type": type
-    }
-  };
-  return new Response(decompressedStream, responseOptions).blob();
+var ChangesParserTransformStream = class extends TransformStream {
+  constructor(stats = {}) {
+    stats.numberOfChanges = 0;
+    stats.lastSeq = null;
+    super({
+      start() {
+      },
+      transform(chunk, controller) {
+        const newData = new Uint8Array(this.data.length + chunk.length);
+        newData.set(this.data, 0);
+        newData.set(chunk, this.data.length);
+        this.data = newData;
+        if (!this.startParsed) {
+          this.data = this.data.slice(13);
+          this.startParsed = true;
+        }
+        let change;
+        do {
+          change = null;
+          const [endPosition, endReached] = nextSplitPosition(this.data);
+          if (endPosition === -1)
+            continue;
+          if (endPosition > 0) {
+            const json = this.decoder.decode(this.data.slice(0, endPosition + 1));
+            change = JSON.parse(json);
+            const { id, changes, deleted } = change;
+            const revs = changes.map(({ rev }) => rev);
+            const row = { id, revs };
+            if (deleted) {
+              row.deleted = true;
+            }
+            stats.numberOfChanges++;
+            controller.enqueue(row);
+          }
+          if (endReached) {
+            const rest = this.decoder.decode(this.data.slice(endPosition + 4));
+            const { last_seq } = JSON.parse(`{${rest}`);
+            stats.lastSeq = last_seq;
+            return;
+          }
+          this.data = this.data.slice(endPosition + 4);
+        } while (change);
+      },
+      flush() {
+      },
+      decoder: new TextDecoder(),
+      data: new Uint8Array(0),
+      startParsed: false
+    });
+  }
 };
 var assembleDoc = async (parts, { decoder }) => {
   if (parts.length === 0)
@@ -1466,14 +1470,30 @@ var assembleDoc = async (parts, { decoder }) => {
   return doc;
 };
 var GetDocsTransformStream = class extends TransformStream {
-  constructor(db, stats) {
+  constructor(database, stats) {
     stats.docsRead = 0;
     const decoder = new TextDecoder();
     super({
       start() {
       },
-      async transform(docs, controller) {
-        const url = new URL(`${db.root}/_bulk_get`, db.url);
+      async transform(batchOfMissingDocs, controller) {
+        const docs = [];
+        const entries = {};
+        for (const { id, revs, entry } of batchOfMissingDocs) {
+          entries[id] = entry;
+          for (const rev of revs) {
+            docs.push({ id, rev });
+          }
+        }
+        const emitDoc = async (parts) => {
+          const doc = await assembleDoc(parts, { decoder });
+          if (doc) {
+            const entry = entries[doc._id];
+            controller.enqueue({ doc, entry });
+            stats.docsRead++;
+          }
+        };
+        const url = new URL(`${database.root}/_bulk_get`, database.url);
         url.searchParams.set("revs", "true");
         url.searchParams.set("attachments", "true");
         const payload = { docs };
@@ -1481,7 +1501,7 @@ var GetDocsTransformStream = class extends TransformStream {
         const body = await gzip(blob);
         const response = await fetch(url, {
           headers: {
-            ...db.headers,
+            ...database.headers,
             "Content-Type": "application/json",
             "Accept": "multipart/related",
             "Content-Encoding": "gzip"
@@ -1498,30 +1518,17 @@ var GetDocsTransformStream = class extends TransformStream {
         let batchComplete = false;
         let currentParts = [];
         let currentBoundary = null;
-        let doc;
         do {
           const { done, value } = await reader.read();
           const parts = parser.read(value);
           for (const part of parts) {
             if (!part.boundary) {
-              doc = await assembleDoc(currentParts, { decoder });
-              if (doc) {
-                controller.enqueue(doc);
-                stats.docsRead++;
-              }
+              emitDoc(currentParts);
               currentParts = [];
               currentBoundary = null;
-              doc = await assembleDoc([part], { decoder });
-              if (doc) {
-                controller.enqueue(doc);
-                stats.docsRead++;
-              }
+              emitDoc([part]);
             } else if (currentBoundary && currentBoundary !== part.boundary) {
-              doc = await assembleDoc(currentParts, { decoder });
-              if (doc) {
-                controller.enqueue(doc);
-                stats.docsRead++;
-              }
+              emitDoc(currentParts);
               currentParts = [part];
               currentBoundary = null;
             } else {
@@ -1531,89 +1538,86 @@ var GetDocsTransformStream = class extends TransformStream {
           }
           batchComplete = done;
         } while (!batchComplete);
-        doc = await assembleDoc(currentParts, { decoder });
-        if (doc) {
-          controller.enqueue(doc);
-          stats.docsRead++;
-        }
+        emitDoc(currentParts);
       },
       flush() {
       }
-    });
+    }, { highWaterMark: 8 });
   }
 };
-function getDocs(db, stats = {}) {
-  return new GetDocsTransformStream(db, stats);
-}
-
-// src/remote/Remote.js
-var Remote = class {
-  constructor({ url, headers }) {
-    this.url = url;
-    this.root = url.pathname;
-    this.headers = headers;
-    this.changesParser = null;
+var Replicator2 = class {
+  constructor(database) {
+    this.database = database;
   }
   async getUuid() {
-    const url = new URL(this.url);
-    url.pathname = "/";
-    const response = await fetch(url, {
-      headers: this.headers
-    });
-    if (response.status !== 200) {
-      throw new Error("Remote server not reachable");
-    }
-    const { uuid } = await response.json();
+    const { uuid } = await this.database.getServerInfo();
     return uuid;
   }
   async getUpdateSeq() {
-    const url = new URL(this.url);
-    const response = await fetch(url, {
-      headers: this.headers
-    });
-    if (response.status !== 200) {
-      throw new Error("Remote database not reachable");
-    }
-    const { update_seq } = await response.json();
+    const { update_seq } = await this.database.getInfo();
     return update_seq;
   }
   async getReplicationLog(id) {
     const _id = `_local/${id}`;
-    const url = new URL(`${this.root}/${_id}`, this.url);
-    const response = await fetch(url, {
-      headers: this.headers
-    });
-    if (response.status === 200) {
-      return response.json();
+    try {
+      const doc = await this.database.getDoc(_id);
+      return doc;
+    } catch (e) {
+      return { _id };
     }
-    return { _id };
   }
-  async saveReplicationLog(doc) {
-    const url = new URL(`${this.root}/${doc._id}`, this.url);
-    const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        "Content-Type": "application/json"
-      },
-      method: "put",
-      body: JSON.stringify(doc)
-    });
-    if (response.status !== 201) {
-      throw new Error("Could not save replication log");
+  saveReplicationLog(doc) {
+    return this.database.saveDoc(doc);
+  }
+  async getChanges(since, { limit } = {}, stats = {}) {
+    const url = new URL(`${this.database.root}/_changes`, this.database.url);
+    url.searchParams.set("feed", "normal");
+    url.searchParams.set("style", "all_docs");
+    if (since) {
+      url.searchParams.set("since", since);
     }
-    return response.json();
+    if (limit) {
+      url.searchParams.set("limit", limit);
+      url.searchParams.set("seq_interval", limit);
+    }
+    const response = await fetch(url, {
+      headers: this.database.headers
+    });
+    if (response.status !== 200) {
+      throw new Error("Could not get changes");
+    }
+    const changesParserTransformStream = new ChangesParserTransformStream(stats);
+    const reader = response.body.getReader();
+    const readableStream = new ReadableStream({
+      async start(controller) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done)
+            break;
+          controller.enqueue(value);
+        }
+        controller.close();
+        reader.releaseLock();
+      }
+    });
+    return readableStream.pipeThrough(changesParserTransformStream);
   }
-  getChanges(since, { limit } = {}, stats = {}) {
-    return getChanges(this, since, { limit }, stats);
-  }
-  getDiff() {
+  filterMissingRevs() {
     throw new Error("Not supported for Remote yet");
   }
   getDocs(stats = {}) {
-    return getDocs(this, stats);
+    return new GetDocsTransformStream(this.database, stats);
   }
   saveDocs(stats = {}) {
     throw new Error("Not supported for Remote yet");
+  }
+};
+
+// src/remote/Remote.js
+var Remote = class {
+  constructor({ url, headers }) {
+    this.database = new Database2({ url, headers });
+    this.replicator = new Replicator2(this.database);
   }
 };
 
@@ -1638,9 +1642,9 @@ var compareSeqs = (a, b) => {
 };
 async function replicate(source, target, {
   batchSize = {
-    getChanges: 1024,
-    getDiff: 128,
-    getDocs: 512,
+    getChanges: 512 * 8,
+    getDiff: 512,
+    getDocs: 1024,
     saveDocs: 512
   }
 } = {}) {
@@ -1654,17 +1658,17 @@ async function replicate(source, target, {
     remoteUuid,
     remoteSeq
   ] = await Promise.all([
-    target.getUuid(),
-    source.getUuid(),
-    source.getUpdateSeq()
+    target.replicator.getUuid(),
+    source.replicator.getUuid(),
+    source.replicator.getUpdateSeq()
   ]);
   const replicationLogId = await generateReplicationLogId(localUuid, remoteUuid);
   const [
     targetLog,
     sourceLog
   ] = await Promise.all([
-    target.getReplicationLog(replicationLogId),
-    source.getReplicationLog(replicationLogId)
+    target.replicator.getReplicationLog(replicationLogId),
+    source.replicator.getReplicationLog(replicationLogId)
   ]);
   let startSeq = findCommonAncestor(targetLog, sourceLog);
   if (compareSeqs(startSeq, remoteSeq) === 0) {
@@ -1673,11 +1677,19 @@ async function replicate(source, target, {
   let changesComplete = false;
   while (!changesComplete) {
     const batchStats = {};
-    const getChanges2 = await source.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats);
-    const getDiff2 = target.getDiff();
-    const getDocs2 = source.getDocs(batchStats);
-    const saveDocs2 = target.saveDocs(batchStats);
-    await getChanges2.pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff })).pipeThrough(getDiff2).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDocs })).pipeThrough(getDocs2).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveDocs })).pipeTo(saveDocs2);
+    const getChanges = await source.replicator.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats);
+    const filterMissingRevs = target.replicator.filterMissingRevs();
+    const getDocs = source.replicator.getDocs(batchStats);
+    const saveDocs = target.replicator.saveDocs(batchStats);
+    const logger = new WritableStream({
+      write(data) {
+        console.log(data);
+      },
+      close() {
+        console.log("complete.");
+      }
+    });
+    await getChanges.pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff })).pipeThrough(filterMissingRevs).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDocs })).pipeThrough(getDocs).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveDocs })).pipeTo(saveDocs);
     stats.lastSeq = batchStats.lastSeq;
     stats.docsRead += batchStats.docsRead;
     stats.docsWritten += batchStats.docsWritten;
@@ -1690,8 +1702,8 @@ async function replicate(source, target, {
         { rev: targetLogRev },
         { rev: sourceLogRev }
       ] = await Promise.all([
-        target.saveReplicationLog(targetLog),
-        source.saveReplicationLog(sourceLog)
+        target.replicator.saveReplicationLog(targetLog),
+        source.replicator.saveReplicationLog(sourceLog)
       ]);
       targetLog._rev = targetLogRev;
       sourceLog._rev = sourceLogRev;

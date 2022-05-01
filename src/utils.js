@@ -43,6 +43,23 @@ export class BatchingTransformStream extends TransformStream {
       },
 
       entries: []
-    }, { highWaterMark: 1 }, { highWaterMark: 1 })
+    })
   }
+}
+
+export const gzip = blob => {
+  const ds = new CompressionStream('gzip')
+  const compressedStream = blob.stream().pipeThrough(ds)
+  return new Response(compressedStream).blob()
+}
+
+export const gunzip = (blob, type) => {
+  const ds = new DecompressionStream('gzip')
+  const decompressedStream = blob.stream().pipeThrough(ds)
+  const responseOptions = {
+    headers: {
+      'Content-Type': type
+    }
+  }
+  return new Response(decompressedStream, responseOptions).blob()
 }

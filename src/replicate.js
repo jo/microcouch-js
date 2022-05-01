@@ -29,9 +29,9 @@ const compareSeqs = (a, b) => {
 // Replicate source to target
 export default async function replicate(source, target, {
   batchSize = {
-    getChanges: 1024,
-    getDiff: 128,
-    getDocs: 512,
+    getChanges: 512*8,
+    getDiff: 512,
+    getDocs: 1024,
     saveDocs: 512
   } 
 } = {}) {
@@ -49,9 +49,9 @@ export default async function replicate(source, target, {
     remoteUuid,
     remoteSeq
   ] = await Promise.all([
-    target.getUuid(),
-    source.getUuid(),
-    source.getUpdateSeq()
+    target.replicator.getUuid(),
+    source.replicator.getUuid(),
+    source.replicator.getUpdateSeq()
   ])
 
   // construct an id to store replication logs at
@@ -62,8 +62,8 @@ export default async function replicate(source, target, {
     targetLog,
     sourceLog
   ] = await Promise.all([
-    target.getReplicationLog(replicationLogId),
-    source.getReplicationLog(replicationLogId)
+    target.replicator.getReplicationLog(replicationLogId),
+    source.replicator.getReplicationLog(replicationLogId)
   ])
 
   // find common ancestor from logs
@@ -78,19 +78,19 @@ export default async function replicate(source, target, {
   while (!changesComplete) {
     const batchStats = {}
 
-    const getChanges = await source.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats)
-    const getDiff = target.getDiff()
-    const getDocs = source.getDocs(batchStats)
-    const saveDocs = target.saveDocs(batchStats)
+    const getChanges = await source.replicator.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats)
+    const filterMissingRevs = target.replicator.filterMissingRevs()
+    const getDocs = source.replicator.getDocs(batchStats)
+    const saveDocs = target.replicator.saveDocs(batchStats)
 
-    // const logger = new WritableStream({
-    //   write (data) {
-    //     console.log(data)
-    //   },
-    //   close () {
-    //     console.log('complete.')
-    //   }
-    // })
+    const logger = new WritableStream({
+      write (data) {
+        console.log(data)
+      },
+      close () {
+        console.log('complete.')
+      }
+    })
 
     // run the pipeline:
     // 1. get changes from source
@@ -99,11 +99,12 @@ export default async function replicate(source, target, {
     // 4. save docs to target
     await getChanges
       .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff }))
-      .pipeThrough(getDiff)
+      .pipeThrough(filterMissingRevs)
       .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDocs }))
       .pipeThrough(getDocs)
       .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveDocs }))
       .pipeTo(saveDocs)
+      // .pipeTo(logger)
 
     // collect stats
     stats.lastSeq = batchStats.lastSeq
@@ -124,8 +125,8 @@ export default async function replicate(source, target, {
         { rev: targetLogRev },
         { rev: sourceLogRev }
       ] = await Promise.all([
-        target.saveReplicationLog(targetLog),
-        source.saveReplicationLog(sourceLog)
+        target.replicator.saveReplicationLog(targetLog),
+        source.replicator.saveReplicationLog(sourceLog)
       ])
       targetLog._rev = targetLogRev
       sourceLog._rev = sourceLogRev

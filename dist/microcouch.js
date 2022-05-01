@@ -748,9 +748,27 @@ var BatchingTransformStream = class extends TransformStream {
     });
   }
 };
+var PatchableReadableStream = class extends ReadableStream {
+  constructor(reader) {
+    super({
+      async start(controller) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done)
+            break;
+          controller.enqueue(value);
+        }
+        controller.close();
+        reader.releaseLock();
+      }
+    });
+  }
+};
 var gzip = (blob) => {
   const ds = new CompressionStream("gzip");
-  const compressedStream = blob.stream().pipeThrough(ds);
+  const reader = blob.stream().getReader();
+  const readableStream = new PatchableReadableStream(reader);
+  const compressedStream = readableStream.pipeThrough(ds);
   return new Response(compressedStream).blob();
 };
 var gunzip = (blob, type) => {
@@ -1098,13 +1116,13 @@ var FilterMissingRevsTransformStream = class extends TransformStream {
 };
 var SaveDocsWritableStream = class extends WritableStream {
   constructor(database, stats = {}) {
+    stats.docsWritten = 0;
     super({
       async write(docs) {
-        this.docsWritten += await database.saveDocs(docs);
+        stats.docsWritten += await database.saveDocs(docs);
       },
       close() {
-      },
-      docsWritten: 0
+      }
     });
   }
 };
@@ -1143,6 +1161,7 @@ var Replicator = class {
 // src/local/Local.js
 var Local = class {
   constructor({ name }) {
+    this.name = name;
     this.database = new Database({ name });
     this.replicator = new Replicator(this.database);
   }
@@ -1155,6 +1174,10 @@ var Local = class {
 };
 
 // src/remote/Database.js
+var gzipJSONBody = (body) => {
+  const blob = new Blob([JSON.stringify(body)], { type: "application/json" });
+  return gzip(blob);
+};
 var Database2 = class {
   constructor({ url, headers }) {
     this.url = url;
@@ -1170,7 +1193,7 @@ var Database2 = class {
     if (response.status !== 200) {
       throw new Error("Remote server not reachable");
     }
-    return response.json();
+    return response;
   }
   async getInfo() {
     const url = new URL(this.url);
@@ -1180,7 +1203,7 @@ var Database2 = class {
     if (response.status !== 200) {
       throw new Error("Remote database not reachable");
     }
-    return response.json();
+    return response;
   }
   async getDoc(id) {
     const url = new URL(`${this.root}/${id}`, this.url);
@@ -1190,22 +1213,63 @@ var Database2 = class {
     if (response.status !== 200) {
       throw new Error("Could not get doc");
     }
-    return response.json();
+    return response;
   }
   async saveDoc(doc) {
     const url = new URL(`${this.root}/${doc._id}`, this.url);
+    const body = await gzipJSONBody(doc);
     const response = await fetch(url, {
       headers: {
         ...this.headers,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Content-Encoding": "gzip"
       },
       method: "put",
-      body: JSON.stringify(doc)
+      body
     });
     if (response.status !== 201) {
       throw new Error("Could not save doc");
     }
-    return response.json();
+    return response;
+  }
+  async getChanges(since, { limit } = {}) {
+    const url = new URL(`${this.root}/_changes`, this.url);
+    url.searchParams.set("feed", "normal");
+    url.searchParams.set("style", "all_docs");
+    if (since) {
+      url.searchParams.set("since", since);
+    }
+    if (limit) {
+      url.searchParams.set("limit", limit);
+      url.searchParams.set("seq_interval", limit);
+    }
+    const response = await fetch(url, {
+      headers: this.headers
+    });
+    if (response.status !== 200) {
+      throw new Error("Could not get changes");
+    }
+    return response;
+  }
+  async bulkGet(docs) {
+    const url = new URL(`${this.root}/_bulk_get`, this.url);
+    url.searchParams.set("revs", "true");
+    url.searchParams.set("attachments", "true");
+    const body = await gzipJSONBody({ docs });
+    const response = await fetch(url, {
+      headers: {
+        ...this.headers,
+        "Content-Type": "application/json",
+        "Accept": "multipart/related",
+        "Content-Encoding": "gzip"
+      },
+      method: "post",
+      body
+    });
+    if (response.status !== 200) {
+      throw new Error("Could not get docs multipart");
+    }
+    return response;
   }
 };
 
@@ -1493,25 +1557,7 @@ var GetDocsTransformStream = class extends TransformStream {
             stats.docsRead++;
           }
         };
-        const url = new URL(`${database.root}/_bulk_get`, database.url);
-        url.searchParams.set("revs", "true");
-        url.searchParams.set("attachments", "true");
-        const payload = { docs };
-        const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
-        const body = await gzip(blob);
-        const response = await fetch(url, {
-          headers: {
-            ...database.headers,
-            "Content-Type": "application/json",
-            "Accept": "multipart/related",
-            "Content-Encoding": "gzip"
-          },
-          method: "post",
-          body
-        });
-        if (response.status !== 200) {
-          throw new Error("Could not get docs multipart");
-        }
+        const response = await database.bulkGet(docs);
         const contentType = response.headers.get("Content-Type");
         const parser = new MultipartRelated(contentType);
         const reader = response.body.getReader();
@@ -1550,56 +1596,35 @@ var Replicator2 = class {
     this.database = database;
   }
   async getUuid() {
-    const { uuid } = await this.database.getServerInfo();
+    const response = await this.database.getServerInfo();
+    const { uuid } = await response.json();
     return uuid;
   }
   async getUpdateSeq() {
-    const { update_seq } = await this.database.getInfo();
+    const response = await this.database.getInfo();
+    const { update_seq } = await response.json();
     return update_seq;
   }
   async getReplicationLog(id) {
     const _id = `_local/${id}`;
+    let doc;
     try {
-      const doc = await this.database.getDoc(_id);
-      return doc;
+      const response = await this.database.getDoc(_id);
+      doc = await response.json();
     } catch (e) {
-      return { _id };
+      doc = { _id };
     }
+    return doc;
   }
-  saveReplicationLog(doc) {
-    return this.database.saveDoc(doc);
+  async saveReplicationLog(doc) {
+    const response = await this.database.saveDoc(doc);
+    return response.json();
   }
   async getChanges(since, { limit } = {}, stats = {}) {
-    const url = new URL(`${this.database.root}/_changes`, this.database.url);
-    url.searchParams.set("feed", "normal");
-    url.searchParams.set("style", "all_docs");
-    if (since) {
-      url.searchParams.set("since", since);
-    }
-    if (limit) {
-      url.searchParams.set("limit", limit);
-      url.searchParams.set("seq_interval", limit);
-    }
-    const response = await fetch(url, {
-      headers: this.database.headers
-    });
-    if (response.status !== 200) {
-      throw new Error("Could not get changes");
-    }
+    const response = await this.database.getChanges(since, { limit });
     const changesParserTransformStream = new ChangesParserTransformStream(stats);
     const reader = response.body.getReader();
-    const readableStream = new ReadableStream({
-      async start(controller) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done)
-            break;
-          controller.enqueue(value);
-        }
-        controller.close();
-        reader.releaseLock();
-      }
-    });
+    const readableStream = new PatchableReadableStream(reader);
     return readableStream.pipeThrough(changesParserTransformStream);
   }
   filterMissingRevs() {

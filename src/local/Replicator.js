@@ -38,12 +38,13 @@ class FilterMissingRevsTransformStream extends TransformStream {
 
 class SaveDocsWritableStream extends WritableStream {
   constructor (database, stats = {}) {
+    stats.docsWritten = 0
+
     super({
       async write (docs) {
-        this.docsWritten += await database.saveDocs(docs)
+        stats.docsWritten += await database.saveDocs(docs)
       },
-      close () {},
-      docsWritten: 0
+      close () {}
     })
   }
 }
@@ -63,12 +64,10 @@ export default class Replicator {
     return seq
   }
 
-  // TODO: use getLocalDoc
   getReplicationLog (id) {
     return this.database.getLocalDoc(id)
   }
 
-  // TODO: use saveLocalDoc
   saveReplicationLog (doc) {
     return this.database.saveLocalDoc(doc)
   }

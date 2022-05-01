@@ -3,6 +3,7 @@ import Replicator from './Replicator.js'
 
 export default class Local {
   constructor ({ name }) {
+    this.name = name
     this.database = new Database({ name })
     this.replicator = new Replicator(this.database)
   }

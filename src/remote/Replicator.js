@@ -1,6 +1,6 @@
 import MultipartRelated from 'multipart-related'
 
-import { gzip, gunzip } from '../utils.js'
+import { gunzip, PatchableReadableStream } from '../utils.js'
 
 // find next position where to split changes
 const nextSplitPosition = (data, offset = 0) => {
@@ -153,29 +153,7 @@ class GetDocsTransformStream extends TransformStream {
           }
         }
 
-        const url = new URL(`${database.root}/_bulk_get`, database.url)
-        url.searchParams.set('revs', 'true')
-        url.searchParams.set('attachments', 'true')
-
-        // TODO: move this to database
-        const payload = { docs }
-        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
-        const body = await gzip(blob)
-        const response = await fetch(url, {
-          headers: {
-            ...database.headers,
-            'Content-Type': 'application/json',
-            'Accept': 'multipart/related',
-            'Content-Encoding': 'gzip'
-          },
-          method: 'post',
-          body
-        })
-        if (response.status !== 200) {
-          throw new Error('Could not get docs multipart')
-          // TODO: use controller.error and controller.terminate
-        }
-        
+        const response = await database.bulkGet(docs)
         const contentType = response.headers.get('Content-Type')
         const parser = new MultipartRelated(contentType)
         const reader = response.body.getReader()
@@ -220,67 +198,47 @@ export default class Replicator {
   }
 
   async getUuid () {
-    const { uuid } = await this.database.getServerInfo()
+    const response = await this.database.getServerInfo()
+    const { uuid } = await response.json()
     return uuid
   }
 
   async getUpdateSeq () {
-    const { update_seq } = await this.database.getInfo()
+    const response = await this.database.getInfo()
+    const { update_seq } = await response.json()
     return update_seq
   }
 
   // fallback to a stub if non-existent
   async getReplicationLog (id) {
     const _id = `_local/${id}`
+    let doc
+
     try {
-      const doc = await this.database.getDoc(_id)
-      return doc
+      const response = await this.database.getDoc(_id)
+      doc = await response.json()
     } catch (e) {
-      return { _id }
+      doc = { _id }
     }
+
+    return doc
   }
 
-  saveReplicationLog (doc) {
-    return this.database.saveDoc(doc)
+  async saveReplicationLog (doc) {
+    const response = await this.database.saveDoc(doc)
+    return response.json()
   }
 
   // get stream of changes
   async getChanges (since, { limit } = {}, stats = {}) {
-    // TODO: put this into database
-    const url = new URL(`${this.database.root}/_changes`, this.database.url)
-    url.searchParams.set('feed', 'normal')
-    url.searchParams.set('style', 'all_docs')
-    if (since) {
-      url.searchParams.set('since', since)
-    }
-    if (limit) {
-      url.searchParams.set('limit', limit)
-      url.searchParams.set('seq_interval', limit)
-    }
-
-    const response = await fetch(url, {
-      headers: this.database.headers
-    })
-    if (response.status !== 200) {
-      throw new Error('Could not get changes')
-    }
+    const response = await this.database.getChanges(since, { limit })
 
     const changesParserTransformStream = new ChangesParserTransformStream(stats)
 
     // create a new ReadableStream out of the response
     // in order to get it polyfilled
     const reader = response.body.getReader()
-    const readableStream = new ReadableStream({
-      async start(controller) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          controller.enqueue(value)
-        }
-        controller.close()
-        reader.releaseLock()
-      }
-    })
+    const readableStream = new PatchableReadableStream(reader)
     
     return readableStream
       .pipeThrough(changesParserTransformStream)

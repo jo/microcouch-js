@@ -47,9 +47,32 @@ export class BatchingTransformStream extends TransformStream {
   }
 }
 
+export class PatchableReadableStream extends ReadableStream {
+  constructor (reader) {
+    super({
+      async start(controller) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          controller.enqueue(value)
+        }
+        controller.close()
+        reader.releaseLock()
+      }
+    })
+  }
+}
+
 export const gzip = blob => {
   const ds = new CompressionStream('gzip')
-  const compressedStream = blob.stream().pipeThrough(ds)
+
+  // `const compressedStream = blob.stream().pipeThrough(ds)`
+  // is not possible in eg FF so we create a new ReadableStream out of the blob
+  // in order to be able to get it polyfilled
+  const reader = blob.stream().getReader()
+  const readableStream = new PatchableReadableStream(reader)
+  
+  const compressedStream = readableStream.pipeThrough(ds)
   return new Response(compressedStream).blob()
 }
 

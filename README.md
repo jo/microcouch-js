@@ -32,8 +32,6 @@ Left to do:
 Place `dist/microcouch.js` into your served directory. Then:
 
 ```html
-<!-- include a web stream polyfill -->
-<script src=//unpkg.com/@stardazed/streams-polyfill@2.4.0/dist/sd-streams-polyfill.min.js></script>
 <script type=module>
   import Microcouch from './microcouch.js'
 
@@ -54,7 +52,38 @@ Place `dist/microcouch.js` into your served directory. Then:
 </script>
 ```
 
-Note how you can use a webstream polyfill to make it work in more browsers.
+### WebStream Polyfill
+It is recommended to polyfill WebStreams as they're not supported fully on all browsers yet. I'd recommend [Stardazed Web Streams Implementation](https://github.com/stardazed/sd-streams), which also comes with a [CompressionStream](https://developer.mozilla.org/en-US/docs/Web/API/CompressionStream) and DecompressionStream polyfills.
+
+```html
+<script src=//unpkg.com/@stardazed/streams-polyfill@2.4.0/dist/sd-streams-polyfill.min.js></script>
+```
+
+### CouchDB CORS Configuration
+You'll need to configure CORS headers to allow `Content-Encoding`, which is needed for gzipped requests:
+```ini
+[cors]
+headers = accept, authorization, content-type, origin, referer, content-encoding
+```
+
+### Enable gzip Compression on your Proxy
+To reduce bandwidth, I'd really recommend to enable gzip compression for all content types, or at least for `application/json` and `multipart/related` requests.
+
+For Nginx you can enable gzip like this:
+```
+location / {
+  proxy_pass http://localhost:5984;
+
+  gzip on;
+  gzip_types *;
+  gzip_proxied any;
+
+  proxy_redirect off;
+  proxy_buffering off;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+```
 
 
 ## Replication Performance

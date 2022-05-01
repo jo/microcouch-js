@@ -33,6 +33,6 @@
   "dependencies": {
     "multipart-related": "2.0.0",
     "pouchdb-merge": "7.3.0",
-    "spark-md5": "^3.0.2"
+    "spark-md5": "3.0.2"
   }
 }

@@ -151,5 +151,20 @@ We can improve a little further by sending gzip encoded responses, and configure
 **Diff: 31.17%**
 
 
+### 5. Parrallelize Bulk Gets
+does not improve things. Looks like network is already saturated with a single request. But could be that in some cases parallelization would be benefitial.
+
+### 6. Comparing `indexeddb` and `idb` Adapter
+Enabled gzip compression on the server and ran again. This time it was much slower on Pouch, probably due to changed load on the server (which is a tiny Hetzner CX11 instance).
+
+#### Replicating a 1.5MB database with 2326 tiny docs each with very small attachments
+* PouchDB `indexeddb`: 42.71s, 1.6MB transferred, 2.5MB resources loaded, 4591 requests
+* PouchDB `idb`: 40.87s, 1.6MB transferred, 2.5MB resources loaded, 4591 requests
+* Microcouch: 6.06s, 1.5MB transferred, 2.7MB resources loaded, 14 requests
+
+`indexeddb` is a tiny little bit slower here.
+
+**Diff: 14.19% in Microcouch vs `indexeddb` adapter**
+
 
 (c) 2022 Johannes J. Schmidt

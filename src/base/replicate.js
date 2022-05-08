@@ -1,6 +1,6 @@
 import SparkMD5 from 'spark-md5'
 
-import { makeUuid, BatchingTransformStream } from './utils.js'
+import { makeUuid } from '../utils.js'
 
 // generate replication log id from local and remote uuids
 const generateReplicationLogId = async (localId, remoteId) => {
@@ -10,9 +10,9 @@ const generateReplicationLogId = async (localId, remoteId) => {
 // compare replication logs and find common ancestor
 // TODO: record and traverse history
 const findCommonAncestor = (localLog, remoteLog) => {
-  return localLog.session_id && localLog.session_id === remoteLog.session_id &&
-    localLog.source_last_seq && localLog.source_last_seq === remoteLog.source_last_seq
-    ? localLog.source_last_seq
+  return localLog.sessionId && localLog.sessionId === remoteLog.sessionId &&
+    localLog.sourceLastSeq && localLog.sourceLastSeq === remoteLog.sourceLastSeq
+    ? localLog.sourceLastSeq
     : null
 }
 
@@ -26,13 +26,44 @@ const compareSeqs = (a, b) => {
   return aInt - bInt
 }
 
+class BatchingTransformStream extends TransformStream {
+  constructor ({ batchSize }) {
+    super({
+      transform (entry, controller) {
+        this.entries.push(entry)
+        if (this.entries.length >= batchSize) {
+          const batch = this.entries.splice(0, batchSize)
+          controller.enqueue(batch)
+        }
+      },
+      
+      flush (controller) {
+        if (this.entries.length > 0) controller.enqueue(this.entries)
+      },
+
+      entries: []
+    }, { highWaterMark: 1024*4 }, { highWaterMark: 1024*4 })
+  }
+}
+
+class Logger extends TransformStream {
+  constructor (scope) {
+    super({
+      transform (data, controller) {
+        console.debug(scope, data)
+        controller.enqueue(data)
+      }
+    }, { highWaterMark: 1024*4 }, { highWaterMark: 1024*4 })
+  }
+}
+
 // Replicate source to target
 export default async function replicate(source, target, {
   batchSize = {
-    getChanges: 512*8,
+    getChanges: 1024,
     getDiff: 512,
-    getDocs: 1024,
-    saveDocs: 512
+    getRevs: 1024,
+    saveRevs: 128
   } 
 } = {}) {
   const sessionId = makeUuid()
@@ -45,13 +76,11 @@ export default async function replicate(source, target, {
   // get source and target database uuids
   // and current source update seq
   const [
-    localUuid,
-    remoteUuid,
-    remoteSeq
+    { uuid: localUuid },
+    { uuid: remoteUuid, updateSeq: remoteSeq }
   ] = await Promise.all([
-    target.replicator.getUuid(),
-    source.replicator.getUuid(),
-    source.replicator.getUpdateSeq()
+    target.replicator.getInfo(),
+    source.replicator.getInfo(),
   ])
 
   // construct an id to store replication logs at
@@ -62,8 +91,8 @@ export default async function replicate(source, target, {
     targetLog,
     sourceLog
   ] = await Promise.all([
-    target.replicator.getReplicationLog(replicationLogId),
-    source.replicator.getReplicationLog(replicationLogId)
+    target.replicator.getLog(replicationLogId),
+    source.replicator.getLog(replicationLogId)
   ])
 
   // find common ancestor from logs
@@ -78,55 +107,40 @@ export default async function replicate(source, target, {
   while (!changesComplete) {
     const batchStats = {}
 
-    const getChanges = await source.replicator.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats)
-    const filterMissingRevs = target.replicator.filterMissingRevs()
-    const getDocs = source.replicator.getDocs(batchStats)
-    const saveDocs = target.replicator.saveDocs(batchStats)
-
-    const logger = new WritableStream({
-      write (data) {
-        console.log(data)
-      },
-      close () {
-        console.log('complete.')
-      }
-    })
-
     // run the pipeline:
     // 1. get changes from source
     // 2. get diffs from target
     // 3. get docs from source
     // 4. save docs to target
-    await getChanges
+    await source.replicator.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats)
+      .pipeThrough(new Logger('getChanges'))
       .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff }))
-      .pipeThrough(filterMissingRevs)
-      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDocs }))
-      .pipeThrough(getDocs)
-      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveDocs }))
-      .pipeTo(saveDocs)
-      // .pipeTo(logger)
+      .pipeThrough(target.replicator.getDiff())
+      .pipeThrough(new Logger('getDiff'))
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getRevs }))
+      .pipeThrough(source.replicator.getRevs(batchStats))
+      .pipeThrough(new Logger('getRevs'))
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveRevs }))
+      .pipeTo(target.replicator.saveRevs(batchStats))
 
     // collect stats
     stats.lastSeq = batchStats.lastSeq
     stats.docsRead += batchStats.docsRead
     stats.docsWritten += batchStats.docsWritten
 
-    // changesComplete = true
-    // continue
-
     // store replication logs only if there was a change
     if (batchStats.lastSeq !== startSeq) {
-      sourceLog.session_id = sessionId
-      sourceLog.source_last_seq = batchStats.lastSeq
-      targetLog.session_id = sessionId
-      targetLog.source_last_seq = batchStats.lastSeq
+      sourceLog.sessionId = sessionId
+      sourceLog.sourceLastSeq = batchStats.lastSeq
+      targetLog.sessionId = sessionId
+      targetLog.sourceLastSeq = batchStats.lastSeq
       
       const [
         { rev: targetLogRev },
         { rev: sourceLogRev }
       ] = await Promise.all([
-        target.replicator.saveReplicationLog(targetLog),
-        source.replicator.saveReplicationLog(sourceLog)
+        target.replicator.saveLog(targetLog),
+        source.replicator.saveLog(sourceLog)
       ])
       targetLog._rev = targetLogRev
       sourceLog._rev = sourceLogRev

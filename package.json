@@ -2,7 +2,7 @@
   "name": "microcouch-js",
   "version": "1.0.0",
   "description": "A minimal Pouch-like implementation of a CouchDB compatible in-browser couch.",
-  "main": "microcouch.js",
+  "main": "src/microcouch.js",
   "type": "module",
   "keywords": [
     "couchdb",
@@ -23,9 +23,13 @@
     "url": "https://github.com/jo/microcouch-js"
   },
   "scripts": {
-    "build": "esbuild src/Microcouch.js --bundle --format=esm --outfile=dist/microcouch.js",
-    "build-min": "esbuild src/Microcouch.js --bundle --minify --format=esm --outfile=dist/microcouch.min.js",
-    "build-all": "npm run build && npm run build-min"
+    "build:indexeddb/flat": "esbuild src/indexeddb/flat/Database.js --bundle --format=esm --outfile=dist/indexeddb/flat/Database.js",
+    "build:indexeddb/normalized": "esbuild src/indexeddb/flat/Database.js --bundle --format=esm --outfile=dist/indexeddb/flat/Database.js",
+    "build:http/multipart": "esbuild src/http/multipart/Database.js --bundle --format=esm --outfile=dist/http/multipart/Database.js",
+    "build:*": "npm run build:indexeddb/flat && npm run build:indexeddb/normalized && npm run build:http/multipart",
+    "build": "esbuild src/microcouch.js --bundle --format=esm --outfile=dist/microcouch.js",
+    "build-min": "esbuild src/microcouch.js --bundle --minify --format=esm --outfile=dist/microcouch.min.js",
+    "build-all": "npm run build:* && npm run build && npm run build-min"
   },
   "devDependencies": {
     "esbuild": "^0.14.38"

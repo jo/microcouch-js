@@ -24,30 +24,7 @@ export const makeUuid = () => {
 }
 
 
-export class BatchingTransformStream extends TransformStream {
-  constructor ({ batchSize }) {
-    // TODO: make highWaterMarks configurable
-    super({
-      start () {},
-
-      transform (entry, controller) {
-        this.entries.push(entry)
-        if (this.entries.length >= batchSize) {
-          const batch = this.entries.splice(0, batchSize)
-          controller.enqueue(batch)
-        }
-      },
-      
-      flush (controller) {
-        if (this.entries.length > 0) controller.enqueue(this.entries)
-      },
-
-      entries: []
-    })
-  }
-}
-
-export class PatchableReadableStream extends ReadableStream {
+class PatchableReadableStream extends ReadableStream {
   constructor (reader) {
     super({
       async start(controller) {
@@ -86,3 +63,4 @@ export const gunzip = (blob, type) => {
   }
   return new Response(decompressedStream, responseOptions).blob()
 }
+

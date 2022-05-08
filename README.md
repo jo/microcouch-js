@@ -17,6 +17,7 @@ Focus is on a small set of functionality:
 * modern web standards
 * embrace es6
 * as few dependencies as possible
+* support latest CouchDB only (3.2)
 
 
 ## State of Work
@@ -33,19 +34,19 @@ Place `dist/microcouch.js` into your served directory. Then:
 
 ```html
 <script type=module>
-  import Microcouch from './microcouch.js'
+  import { IndexedDbFlatDatabase, HttpMultipartDatabase } from './microcouch.js'
 
-  const mc = new Microcouch({
-    name: 'microcouch-test',
-    url: new URL('https://couch.example.com/my-couch-db'),
+  const local = new IndexedDbFlatDatabase({ name: 'mydb' })
+  const remote = new HttpMultipartDatabase({
+    url: new URL('https://couch.example.com/mydb'),
     headers: {
       Authorization: 'Basic ' + btoa('username:password')
     }
   })
 
   const run = async () => {
-    await mc.init()
-    await mc.pull()
+    await local.init()
+    await local.pull(remote)
   }
 
   run()
@@ -151,10 +152,7 @@ We can improve a little further by sending gzip encoded responses, and configure
 **Diff: 31.17%**
 
 
-### 5. Parrallelize Bulk Gets
-does not improve things. Looks like network is already saturated with a single request. But could be that in some cases parallelization would be benefitial.
-
-### 6. Comparing `indexeddb` and `idb` Adapter
+### 5. Comparing Pouch's `indexeddb` and `idb` Adapter
 Enabled gzip compression on the server and ran again. This time it was much slower on Pouch, probably due to changed load on the server (which is a tiny Hetzner CX11 instance).
 
 #### Replicating a 1.5MB database with 2326 tiny docs each with very small attachments

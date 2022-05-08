@@ -1,11 +1,4 @@
-import { gzip } from '../utils.js'
-
-const gzipJSONBody = body => {
-  const blob = new Blob([JSON.stringify(body)], { type: 'application/json' })
-  return gzip(blob)
-}
-
-export default class Database {
+export default class Adapter {
   constructor ({ url, headers }) {
     this.url = url
     this.root = url.pathname
@@ -23,7 +16,7 @@ export default class Database {
       throw new Error('Remote server not reachable')
     }
     
-    return response
+    return response.json()
   }
 
   async getInfo () {
@@ -36,7 +29,7 @@ export default class Database {
       throw new Error('Remote database not reachable')
     }
     
-    return response
+    return response.json()
   }
 
   async getDoc (id) {
@@ -56,12 +49,11 @@ export default class Database {
   async saveDoc (doc) {
     const url = new URL(`${this.root}/${doc._id}`, this.url)
 
-    const body = await gzipJSONBody(doc)
+    const body = JSON.stringify(doc)
     const response = await fetch(url, {
       headers: {
         ...this.headers,
-        'Content-Type': 'application/json',
-        'Content-Encoding': 'gzip'
+        'Content-Type': 'application/json'
       },
       method: 'put',
       body
@@ -73,9 +65,27 @@ export default class Database {
     return response
   }
 
+  async deleteDoc (doc) {
+    const url = new URL(`${this.root}/${doc._id}`, this.url)
+    url.searchParams.set('rev', doc._rev)
+
+    const response = await fetch(url, {
+      headers: {
+        ...this.headers
+      },
+      method: 'delete'
+    })
+    if (response.status !== 200) {
+      throw new Error('Could not delete doc')
+    }
+
+    return response
+  }
+
   async getChanges (since, { limit } = {}) {
     const url = new URL(`${this.root}/_changes`, this.url)
-    url.searchParams.set('feed', 'normal')
+    url.searchParams.set('feed', 'continuous')
+    url.searchParams.set('timeout', '0')
     url.searchParams.set('style', 'all_docs')
     if (since) {
       url.searchParams.set('since', since)
@@ -95,24 +105,61 @@ export default class Database {
     return response
   }
 
+  async revsDiff (payload) {
+    const url = new URL(`${this.root}/_revs_diff`, this.url)
+
+    const body = JSON.stringify(payload)
+    const response = await fetch(url, {
+      headers: {
+        ...this.headers,
+        'Content-Type': 'application/json'
+      },
+      method: 'post',
+      body
+    })
+    if (response.status !== 200) {
+      throw new Error('Could not get revs diff')
+    }
+
+    return response
+  }
+
   async bulkGet (docs) {
     const url = new URL(`${this.root}/_bulk_get`, this.url)
     url.searchParams.set('revs', 'true')
     url.searchParams.set('attachments', 'true')
 
-    const body = await gzipJSONBody({ docs })
+    const body = JSON.stringify({ docs })
     const response = await fetch(url, {
       headers: {
         ...this.headers,
         'Content-Type': 'application/json',
-        'Accept': 'multipart/related',
-        'Content-Encoding': 'gzip'
+        'Accept': 'multipart/related'
       },
       method: 'post',
       body
     })
     if (response.status !== 200) {
       throw new Error('Could not get docs multipart')
+    }
+
+    return response
+  }
+
+  async bulkDocs (docs) {
+    const url = new URL(`${this.root}/_bulk_docs`, this.url)
+
+    const body = JSON.stringify({ docs, new_edits: false })
+    const response = await fetch(url, {
+      headers: {
+        ...this.headers,
+        'Content-Type': 'application/json'
+      },
+      method: 'post',
+      body
+    })
+    if (response.status !== 201) {
+      throw new Error('Could not save bulk docs')
     }
 
     return response

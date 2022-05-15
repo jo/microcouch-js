@@ -1,7 +1,9 @@
-# Microcouch
+# Microcouch JavaScript
 A minimal Pouch-like implementation of a CouchDB compatible in-browser couch. Basically this is for educational purpose by now. I already learned a lot.
 
 **Disclaimer:** Microcouch is an absolute beta version, which currently serves more for educational purposes. I'm experimenting with various optimizations here to speed up replication. You probably want to use [PoouchDB](https://pouchdb.com/) instead.
+
+This also acts as a design study for the [Rust Microcouch](https://github.com/jo/microcouch-rs).
 
 Data model similar to the one used in PouchDBs new `indexeddb` adapter.
 
@@ -29,6 +31,8 @@ Left to do:
 * replication log history
 * implement `getDocs(range)`
 
+
+Microcouch is quiet small, currently less than 30kB minified.
 
 ## Usage
 Place `dist/microcouch.js` into your served directory. Then:

@@ -2,7 +2,9 @@ import SparkMD5 from 'spark-md5'
 
 const MD5_CHUNK_SIZE = 32768
 
-export const calculateMd5 = async blob => {
+export const md5FromString = (string, raw) => SparkMD5.hash(string, raw)
+
+export const md5FromBlob = async (blob, raw) => {
   const chunkSize = Math.min(MD5_CHUNK_SIZE, blob.size)
   const chunks = Math.ceil(blob.size / chunkSize)
 
@@ -14,7 +16,7 @@ export const calculateMd5 = async blob => {
     md5.append(arrayBuffer)
   }
 
-  return md5.end(true)
+  return md5.end(raw)
 }
 
 export const makeUuid = () => {
@@ -22,45 +24,3 @@ export const makeUuid = () => {
     (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
   )
 }
-
-
-class PatchableReadableStream extends ReadableStream {
-  constructor (reader) {
-    super({
-      async start(controller) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          controller.enqueue(value)
-        }
-        controller.close()
-        reader.releaseLock()
-      }
-    })
-  }
-}
-
-export const gzip = blob => {
-  const ds = new CompressionStream('gzip')
-
-  // `const compressedStream = blob.stream().pipeThrough(ds)`
-  // is not possible in eg FF so we create a new ReadableStream out of the blob
-  // in order to be able to get it polyfilled
-  const reader = blob.stream().getReader()
-  const readableStream = new PatchableReadableStream(reader)
-  
-  const compressedStream = readableStream.pipeThrough(ds)
-  return new Response(compressedStream).blob()
-}
-
-export const gunzip = (blob, type) => {
-  const ds = new DecompressionStream('gzip')
-  const decompressedStream = blob.stream().pipeThrough(ds)
-  const responseOptions = {
-    headers: {
-      'Content-Type': type
-    }
-  }
-  return new Response(decompressedStream, responseOptions).blob()
-}
-

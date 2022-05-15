@@ -1,112 +1,39 @@
 import MultipartRelated from 'multipart-related'
 
-import BaseReplicator from '../../base/Replicator.js'
-import { gunzip } from '../../utils.js'
+import HttpReplicator from '../Replicator.js'
 
-class GetChangesReadableStream extends ReadableStream {
-  constructor (adapter, { since, limit }) {
-    let reader
-
+class PatchableReadableStream extends ReadableStream {
+  constructor (reader) {
     super({
       async start(controller) {
-        const response = await adapter.getChanges(since, { limit })
-        reader = response.body.getReader()
-      },
-
-      async pull (controller) {
-        const { done, value } = await reader.read()
-        if (done) {
-          controller.close()
-          reader.releaseLock()
-        } else {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
           controller.enqueue(value)
         }
-      }
-    }, { highWaterMark: 1024*1024 })
-  }
-}
-
-// find next position of linebreak where to split changes
-const nextSplitPosition = data => {
-  for (let i = 0; i < data.length; i++) {
-    if (data[i] === 10) return i
-  }
-  return -1
-}
-
-class ChangesParserTransformStream extends TransformStream {
-  constructor (stats = {}) {
-    stats.numberOfChanges = 0
-    stats.lastSeq = null
-
-    const decoder = new TextDecoder()
-
-    super({
-      transform (chunk, controller) {
-        const newData = new Uint8Array(this.data.length + chunk.length)
-        newData.set(this.data, 0)
-        newData.set(chunk, this.data.length)
-        this.data = newData
-
-        while (true) {
-          const endPosition = nextSplitPosition(this.data)
-          if (endPosition === -1) return
-
-          if (endPosition > 0) {
-            const line = decoder.decode(this.data.slice(0, endPosition))
-            let change
-            try {
-              change = JSON.parse(line)
-            } catch (e) {
-              throw new Error('could not parse change JSON')
-            }
-
-            // TODO: think about deleted - is this needed?
-            const { last_seq, id, changes: revs, deleted } = change
-            if (last_seq) {
-              stats.lastSeq = last_seq
-            } else {
-              stats.numberOfChanges++
-              controller.enqueue({ id, revs, deleted })
-            }
-          }
-
-          this.data = this.data.slice(endPosition + 1)
-        }
-      },
-      
-      data: new Uint8Array(0),
-      startParsed: false
-    }, { highWaterMark: 1024*1024*8 }, { highWaterMark: 1024 })
-  }
-}
-
-class FilterMissingRevsTransformStream extends TransformStream {
-  constructor (adapter) {
-    super({
-      async transform (batch, controller) {
-        const payload = {}
-        for (const { id, revs } of batch) {
-          payload[id] = revs.map(({ rev }) => rev)
-        }
-
-        const response = await adapter.revsDiff(payload)
-        const diff = await response.json()
-
-        for (const id in diff) {
-          if (!(missing in diff[id])) {
-            throw new Error('missing `missing` property in revsDiff response')
-          }
-
-          const { missing } = diff[id]
-          const revs = missing.map(rev => ({ rev }))
-          if (revs.length > 0) {
-            controller.enqueue({ id, revs })
-          }
-        }
+        controller.close()
+        reader.releaseLock()
       }
     })
   }
+}
+
+const gunzip = (blob, type) => {
+  const ds = new DecompressionStream('gzip')
+
+  // `const compressedStream = blob.stream().pipeThrough(ds)`
+  // is not possible in eg FF so we create a new ReadableStream out of the blob
+  // in order to be able to get it polyfilled
+  const reader = blob.stream().getReader()
+  const readableStream = new PatchableReadableStream(reader)
+
+  const decompressedStream = readableStream.pipeThrough(ds)
+  const responseOptions = {
+    headers: {
+      'Content-Type': type
+    }
+  }
+  return new Response(decompressedStream, responseOptions).blob()
 }
 
 class GetRevsTransformStream extends TransformStream {
@@ -208,13 +135,34 @@ class GetRevsTransformStream extends TransformStream {
 
           if (doc) {
             const { _id: id, _rev: rev } = doc
+            if (!(id in batchById)) {
+              throw new Error(`received a doc which was not requested: '${id}'`)
+            }
+            
             docsById[id] = docsById[id] || {}
             docsById[id][rev] = doc
 
-            if (flush || (lastId && lastId !== id)) {
-              if (!(id in batchById)) {
-                throw new Error(`received a doc which was not requested: '${id}'`)
+            if (lastId && lastId !== id) {
+              const idToEmit = lastId
+              const row = batchById[idToEmit]
+              const revs = []
+              for (const rev of row.revs) {
+                if (rev.rev in docsById[idToEmit]) {
+                  const doc = docsById[idToEmit][rev.rev]
+                  revs.push({ rev, doc })
+                } else {
+                  console.warn(`could not fetch rev '${rev.rev}' for doc '${idToEmit}'`)
+                }
               }
+              delete docsById[idToEmit]
+              controller.enqueue({ ...row, revs })
+              stats.docsRead++
+            }
+            lastId = id
+
+          }
+          if (flush) {
+            for (const id in docsById) {
               const row = batchById[id]
               const revs = []
               for (const rev of row.revs) {
@@ -225,10 +173,10 @@ class GetRevsTransformStream extends TransformStream {
                   console.warn(`could not fetch rev '${rev.rev}' for doc '${id}'`)
                 }
               }
+              delete docsById[id]
               controller.enqueue({ ...row, revs })
               stats.docsRead++
             }
-            lastId = id
           }
         }
 
@@ -241,13 +189,13 @@ class GetRevsTransformStream extends TransformStream {
           const parts = parser.read(value)
           for (const part of parts) {
             if (!part.boundary) {
-              emitDoc(currentParts)
+              await emitDoc(currentParts)
               currentParts = []
               currentBoundary = null
-              emitDoc([part])
+              await emitDoc([part])
               // single doc without attachments
             } else if (currentBoundary && currentBoundary !== part.boundary) {
-              emitDoc(currentParts)
+              await emitDoc(currentParts)
               currentParts = [part]
               currentBoundary = null
             } else {
@@ -259,22 +207,31 @@ class GetRevsTransformStream extends TransformStream {
         } while (!batchComplete)
         
         // assemble the rest
-        emitDoc(currentParts, true)
+        await emitDoc(currentParts, true)
       }
     }, { highWaterMark: 8 }, { highWaterMark: 1024*4 })
   }
 }
 
-// use put doc multipart (not implemented in CouchDB yet, though)
 // TODO: support attachments
+// This is not so nice, because CouchDB does not support `_bulk_docs` multipart/related requests yet.
+// So we will have to make multiple request for each doc with attachment.
 class SaveDocsWritableStream extends WritableStream {
   constructor (adapter, stats = {}) {
     stats.docsWritten = 0
 
     super({
       async write (batch) {
-        const payload = batch.reduce((memo, { revs }) => memo.concat(revs.map(({ doc }) => doc)), [])
-        const response = await adapter.bulkDocs(payload)
+        const revs = batch.reduce((memo, { revs }) => memo.concat(revs.map(({ doc }) => doc)), [])
+        const revsWithoutAttachments = revs.filter(({ _attachments }) => !_attachments || Object.keys(_attachments).length === 0)
+        if (revsWithoutAttachments.length > 0) {
+          const response = await adapter.bulkDocs(revsWithoutAttachments)
+        }
+        const revsWithAttachments = revs.filter(({ _attachments }) => _attachments && Object.keys(_attachments).length > 0)
+        if (revsWithAttachments.length > 0) {
+          // TODO: support attachments
+          console.warn('would save docs with attachments', revsWithAttachments)
+        }
         // TODO: check response
         // TODO: record write failures
         stats.docsWritten += batch.length
@@ -283,55 +240,10 @@ class SaveDocsWritableStream extends WritableStream {
   }
 }
 
-export default class Replicator extends BaseReplicator {
+export default class HttpMultipartReplicator extends HttpReplicator {
   constructor (adapter) {
     super()
     this.adapter = adapter
-  }
-
-  // TODO: compose uuid from server uuid + dbname
-  async getInfo () {
-    const [
-      { uuid },
-      { update_seq: updateSeq }
-    ] = await Promise.all([
-      this.adapter.getServerInfo(),
-      this.adapter.getInfo()
-    ])
-    
-    return { uuid, updateSeq }
-  }
-
-  // fallback to a stub if non-existent
-  async getLog (id) {
-    const _id = `_local/${id}`
-    let doc
-
-    try {
-      const response = await this.adapter.getDoc(_id)
-      doc = await response.json()
-    } catch (e) {
-      doc = { _id }
-    }
-
-    return doc
-  }
-
-  async saveLog (doc) {
-    const response = await this.adapter.saveDoc(doc)
-    return response.json()
-  }
-
-  getChanges (since, { limit } = {}, stats = {}) {
-    const getChangesReadableStream = new GetChangesReadableStream(this.adapter, { since, limit })
-    const changesParserTransformStream = new ChangesParserTransformStream(stats)
-
-    return getChangesReadableStream
-      .pipeThrough(changesParserTransformStream)
-  }
-
-  getDiff () {
-    return new FilterMissingRevsTransformStream(this.adapter)
   }
 
   getRevs (stats = {}) {

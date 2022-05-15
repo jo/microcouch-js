@@ -1,8 +1,8 @@
-import BaseDatabase from '../../base/Database.js'
+import Database from '../../Database.js'
 import Adapter from './Adapter.js'
 import Replicator from './Replicator.js'
 
-export default class IndexedDBNormalizedDatabase extends BaseDatabase {
+export default class IndexedDBNormalizedDatabase extends Database {
   constructor ({ name }) {
     super()
     this.name = name

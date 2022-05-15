@@ -1,4 +1,4 @@
-import BaseReplicator from '../../base/Replicator.js'
+import Replicator from '../../Replicator.js'
 
 class GetChangesReadableStream extends ReadableStream {
   constructor (adapter, { since, limit }, stats = {}) {
@@ -17,9 +17,8 @@ class GetChangesReadableStream extends ReadableStream {
           controller.close()
           return
         }
-        // TODO: think whether we need deleted here
-        const { id, changes: revs, deleted } = changes.shift()
-        controller.enqueue({ id, revs, deleted })
+        const { id, changes: revs } = changes.shift()
+        controller.enqueue({ id, revs })
       }
     })
   }
@@ -30,25 +29,9 @@ class FilterMissingRevsTransformStream extends TransformStream {
     super({
       async transform (batchOfChanges, controller) {
         const ids = batchOfChanges.map(({ id }) => id)
-        const entries = await adapter.getEntries(ids)
-        for (const { id, revs } of batchOfChanges) {
-          const entry = entries[id]
-          if (entry) {
-            const filteredRevs = revs.filter(({ rev }) => !(rev in entry.revs))
-            if (filteredRevs.length > 0) {
-              controller.enqueue({
-                id,
-                revs: filteredRevs,
-                // pass over entry to be later used in saveRevs
-                entry
-              })
-            }
-          } else {
-            controller.enqueue({
-              id,
-              revs
-            })
-          }
+        const revs = await adapter.getDiff(batchOfChanges)
+        for (const rev of revs) {
+          controller.enqueue(rev)
         }
       }
     }, { highWaterMark: 8 }, { highWaterMark: 1024 })
@@ -80,21 +63,21 @@ class SaveDocsWritableStream extends WritableStream {
 
     super({
       async write (revs) {
-        // TODO: check response
-        stats.docsWritten += await adapter.saveRevsWithEntries(revs)
+        const result = await adapter.saveRevs(revs, { newEdits: false })
+        stats.docsWritten += result.length
       }
     }, { highWaterMark: 1024*4 })
   }
 }
 
-export default class Replicator extends BaseReplicator  {
+export default class IndexedDBFlatReplicator extends Replicator  {
   constructor (adapter) {
     super()
     this.adapter = adapter
   }
 
-  getInfo () {
-    const { db_uuid, seq } = this.adapter.metadata
+  async getInfo () {
+    const { db_uuid, seq } = await this.adapter.getMetadata()
     return {
       uuid: db_uuid,
       updateSeq: seq

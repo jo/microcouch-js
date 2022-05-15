@@ -34,7 +34,7 @@ var require_spark_md5 = __commonJS({
         }
         glob.SparkMD5 = factory();
       }
-    })(function(undefined) {
+    })(function(undefined2) {
       "use strict";
       var add32 = function(a, b) {
         return a + b & 4294967295;
@@ -277,7 +277,7 @@ var require_spark_md5 = __commonJS({
           }
           ArrayBuffer.prototype.slice = function(from, to) {
             var length = this.byteLength, begin = clamp(from, length), end = length, num, target, targetArray, sourceArray;
-            if (to !== undefined) {
+            if (to !== undefined2) {
               end = clamp(to, length);
             }
             if (begin > end) {
@@ -321,14 +321,14 @@ var require_spark_md5 = __commonJS({
         }
         return String.fromCharCode.apply(String, bytes);
       }
-      function SparkMD54() {
+      function SparkMD52() {
         this.reset();
       }
-      SparkMD54.prototype.append = function(str) {
+      SparkMD52.prototype.append = function(str) {
         this.appendBinary(toUtf8(str));
         return this;
       };
-      SparkMD54.prototype.appendBinary = function(contents) {
+      SparkMD52.prototype.appendBinary = function(contents) {
         this._buff += contents;
         this._length += contents.length;
         var length = this._buff.length, i;
@@ -338,7 +338,7 @@ var require_spark_md5 = __commonJS({
         this._buff = this._buff.substring(i - 64);
         return this;
       };
-      SparkMD54.prototype.end = function(raw) {
+      SparkMD52.prototype.end = function(raw) {
         var buff = this._buff, length = buff.length, i, tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], ret;
         for (i = 0; i < length; i += 1) {
           tail[i >> 2] |= buff.charCodeAt(i) << (i % 4 << 3);
@@ -351,31 +351,31 @@ var require_spark_md5 = __commonJS({
         this.reset();
         return ret;
       };
-      SparkMD54.prototype.reset = function() {
+      SparkMD52.prototype.reset = function() {
         this._buff = "";
         this._length = 0;
         this._hash = [1732584193, -271733879, -1732584194, 271733878];
         return this;
       };
-      SparkMD54.prototype.getState = function() {
+      SparkMD52.prototype.getState = function() {
         return {
           buff: this._buff,
           length: this._length,
           hash: this._hash.slice()
         };
       };
-      SparkMD54.prototype.setState = function(state) {
+      SparkMD52.prototype.setState = function(state) {
         this._buff = state.buff;
         this._length = state.length;
         this._hash = state.hash;
         return this;
       };
-      SparkMD54.prototype.destroy = function() {
+      SparkMD52.prototype.destroy = function() {
         delete this._hash;
         delete this._buff;
         delete this._length;
       };
-      SparkMD54.prototype._finish = function(tail, length) {
+      SparkMD52.prototype._finish = function(tail, length) {
         var i = length, tmp, lo, hi;
         tail[i >> 2] |= 128 << (i % 4 << 3);
         if (i > 55) {
@@ -392,17 +392,17 @@ var require_spark_md5 = __commonJS({
         tail[15] = hi;
         md5cycle(this._hash, tail);
       };
-      SparkMD54.hash = function(str, raw) {
-        return SparkMD54.hashBinary(toUtf8(str), raw);
+      SparkMD52.hash = function(str, raw) {
+        return SparkMD52.hashBinary(toUtf8(str), raw);
       };
-      SparkMD54.hashBinary = function(content, raw) {
+      SparkMD52.hashBinary = function(content, raw) {
         var hash = md51(content), ret = hex(hash);
         return raw ? hexToBinaryString(ret) : ret;
       };
-      SparkMD54.ArrayBuffer = function() {
+      SparkMD52.ArrayBuffer = function() {
         this.reset();
       };
-      SparkMD54.ArrayBuffer.prototype.append = function(arr) {
+      SparkMD52.ArrayBuffer.prototype.append = function(arr) {
         var buff = concatenateArrayBuffers(this._buff.buffer, arr, true), length = buff.length, i;
         this._length += arr.byteLength;
         for (i = 64; i <= length; i += 64) {
@@ -411,7 +411,7 @@ var require_spark_md5 = __commonJS({
         this._buff = i - 64 < length ? new Uint8Array(buff.buffer.slice(i - 64)) : new Uint8Array(0);
         return this;
       };
-      SparkMD54.ArrayBuffer.prototype.end = function(raw) {
+      SparkMD52.ArrayBuffer.prototype.end = function(raw) {
         var buff = this._buff, length = buff.length, tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], i, ret;
         for (i = 0; i < length; i += 1) {
           tail[i >> 2] |= buff[i] << (i % 4 << 3);
@@ -424,39 +424,37 @@ var require_spark_md5 = __commonJS({
         this.reset();
         return ret;
       };
-      SparkMD54.ArrayBuffer.prototype.reset = function() {
+      SparkMD52.ArrayBuffer.prototype.reset = function() {
         this._buff = new Uint8Array(0);
         this._length = 0;
         this._hash = [1732584193, -271733879, -1732584194, 271733878];
         return this;
       };
-      SparkMD54.ArrayBuffer.prototype.getState = function() {
-        var state = SparkMD54.prototype.getState.call(this);
+      SparkMD52.ArrayBuffer.prototype.getState = function() {
+        var state = SparkMD52.prototype.getState.call(this);
         state.buff = arrayBuffer2Utf8Str(state.buff);
         return state;
       };
-      SparkMD54.ArrayBuffer.prototype.setState = function(state) {
+      SparkMD52.ArrayBuffer.prototype.setState = function(state) {
         state.buff = utf8Str2ArrayBuffer(state.buff, true);
-        return SparkMD54.prototype.setState.call(this, state);
+        return SparkMD52.prototype.setState.call(this, state);
       };
-      SparkMD54.ArrayBuffer.prototype.destroy = SparkMD54.prototype.destroy;
-      SparkMD54.ArrayBuffer.prototype._finish = SparkMD54.prototype._finish;
-      SparkMD54.ArrayBuffer.hash = function(arr, raw) {
+      SparkMD52.ArrayBuffer.prototype.destroy = SparkMD52.prototype.destroy;
+      SparkMD52.ArrayBuffer.prototype._finish = SparkMD52.prototype._finish;
+      SparkMD52.ArrayBuffer.hash = function(arr, raw) {
         var hash = md51_array(new Uint8Array(arr)), ret = hex(hash);
         return raw ? hexToBinaryString(ret) : ret;
       };
-      return SparkMD54;
+      return SparkMD52;
     });
   }
 });
 
-// src/base/replicate.js
-var import_spark_md52 = __toESM(require_spark_md5(), 1);
-
 // src/utils.js
 var import_spark_md5 = __toESM(require_spark_md5(), 1);
 var MD5_CHUNK_SIZE = 32768;
-var calculateMd5 = async (blob) => {
+var md5FromString = (string2, raw) => import_spark_md5.default.hash(string2, raw);
+var md5FromBlob = async (blob, raw) => {
   const chunkSize = Math.min(MD5_CHUNK_SIZE, blob.size);
   const chunks = Math.ceil(blob.size / chunkSize);
   const md5 = new import_spark_md5.default.ArrayBuffer();
@@ -465,28 +463,18 @@ var calculateMd5 = async (blob) => {
     const arrayBuffer = await part.arrayBuffer();
     md5.append(arrayBuffer);
   }
-  return md5.end(true);
+  return md5.end(raw);
 };
 var makeUuid = () => {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 };
-var gunzip = (blob, type) => {
-  const ds = new DecompressionStream("gzip");
-  const decompressedStream = blob.stream().pipeThrough(ds);
-  const responseOptions = {
-    headers: {
-      "Content-Type": type
-    }
-  };
-  return new Response(decompressedStream, responseOptions).blob();
-};
 
-// src/base/replicate.js
-var generateReplicationLogId = async (localId, remoteId) => {
-  return import_spark_md52.default.hash(`${localId}${remoteId}`);
+// src/Database.js
+var generateReplicationLogId = async (targetId, sourceId) => {
+  return md5FromString(`${targetId}${sourceId}`);
 };
-var findCommonAncestor = (localLog, remoteLog) => {
-  return localLog.sessionId && localLog.sessionId === remoteLog.sessionId && localLog.sourceLastSeq && localLog.sourceLastSeq === remoteLog.sourceLastSeq ? localLog.sourceLastSeq : null;
+var findCommonAncestor = (targetLog, sourceLog) => {
+  return targetLog.sessionId && targetLog.sessionId === sourceLog.sessionId && targetLog.sourceLastSeq && targetLog.sourceLastSeq === sourceLog.sourceLastSeq ? targetLog.sourceLastSeq : null;
 };
 var compareSeqs = (a, b) => {
   if (!a)
@@ -521,33 +509,31 @@ var Logger = class extends TransformStream {
   constructor(scope) {
     super({
       transform(data, controller) {
-        console.debug(scope, data);
+        console.debug(scope, data.length, data);
         controller.enqueue(data);
       }
     }, { highWaterMark: 1024 * 4 }, { highWaterMark: 1024 * 4 });
   }
 };
-async function replicate(source, target, {
+var replicate = async (source, target, {
   batchSize = {
-    getChanges: 1024,
-    getDiff: 512,
-    getRevs: 1024,
-    saveRevs: 128
+    source: 1024,
+    target: 256
   }
-} = {}) {
+} = {}) => {
   const sessionId = makeUuid();
   const stats = {
     docsRead: 0,
     docsWritten: 0
   };
   const [
-    { uuid: localUuid },
-    { uuid: remoteUuid, updateSeq: remoteSeq }
+    { uuid: targetUuid },
+    { uuid: sourceUuid, updateSeq: sourceSeq }
   ] = await Promise.all([
     target.replicator.getInfo(),
     source.replicator.getInfo()
   ]);
-  const replicationLogId = await generateReplicationLogId(localUuid, remoteUuid);
+  const replicationLogId = await generateReplicationLogId(targetUuid, sourceUuid);
   const [
     targetLog,
     sourceLog
@@ -556,13 +542,13 @@ async function replicate(source, target, {
     source.replicator.getLog(replicationLogId)
   ]);
   let startSeq = findCommonAncestor(targetLog, sourceLog);
-  if (compareSeqs(startSeq, remoteSeq) === 0) {
+  if (compareSeqs(startSeq, sourceSeq) === 0) {
     return stats;
   }
   let changesComplete = false;
   while (!changesComplete) {
     const batchStats = {};
-    await source.replicator.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats).pipeThrough(new Logger("getChanges")).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff })).pipeThrough(target.replicator.getDiff()).pipeThrough(new Logger("getDiff")).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getRevs })).pipeThrough(source.replicator.getRevs(batchStats)).pipeThrough(new Logger("getRevs")).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveRevs })).pipeTo(target.replicator.saveRevs(batchStats));
+    await source.replicator.getChanges(startSeq, { limit: batchSize.source }, batchStats).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.target })).pipeThrough(target.replicator.getDiff()).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.source })).pipeThrough(new Logger("got diffs now getRevs")).pipeThrough(source.replicator.getRevs(batchStats)).pipeThrough(new BatchingTransformStream({ batchSize: batchSize.target })).pipeTo(target.replicator.saveRevs(batchStats));
     stats.lastSeq = batchStats.lastSeq;
     stats.docsRead += batchStats.docsRead;
     stats.docsWritten += batchStats.docsWritten;
@@ -582,13 +568,15 @@ async function replicate(source, target, {
       sourceLog._rev = sourceLogRev;
     }
     startSeq = batchStats.lastSeq;
-    changesComplete = batchStats.numberOfChanges < batchSize.getChanges || compareSeqs(batchStats.lastSeq, remoteSeq) >= 0;
+    changesComplete = batchStats.numberOfChanges < batchSize.source || compareSeqs(batchStats.lastSeq, sourceSeq) >= 0;
   }
   return stats;
-}
-
-// src/base/Database.js
+};
 var Database = class extends EventTarget {
+  constructor() {
+    super();
+    this.replicator = null;
+  }
   async init() {
     throw new Error(`init is not implemented for ${this.constructor.name}`);
   }
@@ -610,21 +598,62 @@ var Database = class extends EventTarget {
   async getDocs(range) {
     throw new Error(`getDocs is not implemented for ${this.constructor.name}`);
   }
-  async pull(other) {
-    const result = await replicate(other, this);
+  async pull(other, options) {
+    const result = await replicate(other, this, options);
     if (result.docsWritten > 0) {
       this.dispatchEvent(new Event("change"));
     }
     return result;
   }
-  push(other) {
-    return replicate(this, other);
+  push(other, options) {
+    return replicate(this, other, options);
   }
   sync(other) {
     return Promise.all([
       this.pull(other),
       this.push(other)
     ]);
+  }
+};
+
+// src/indexeddb/Database.js
+var IndexedDBDatabase = class extends Database {
+  constructor({ name }) {
+    super();
+    this.name = name;
+    this.adapter = null;
+    this.replicator = null;
+  }
+  init() {
+    return this.adapter.init();
+  }
+  destroy() {
+    return this.adapter.destroy();
+  }
+  async saveDoc(doc) {
+    const [response] = await this.adapter.saveDocs([doc]);
+    this.dispatchEvent(new Event("change"));
+    return response;
+  }
+};
+
+// src/indexeddb/Adapter.js
+var IndexedDBAdapter = class {
+  constructor({ name }) {
+    this.name = name;
+    this.db = null;
+    this.metadata = null;
+  }
+  destroy() {
+    return new Promise((resolve, reject) => {
+      this.db.close();
+      const req = indexedDB.deleteDatabase(this.name);
+      req.onsuccess = () => {
+        this.db = null;
+        this.metadata = null;
+        resolve();
+      };
+    });
   }
 };
 
@@ -851,8 +880,8 @@ function stem(tree, depth) {
         ids: pathToTree(stemmed, numStemmed)
       };
       for (var s = 0; s < numStemmed; s++) {
-        var rev2 = path.pos + s + "-" + stemmed[s].id;
-        stemmedRevs[rev2] = true;
+        var rev = path.pos + s + "-" + stemmed[s].id;
+        stemmedRevs[rev] = true;
       }
     } else {
       node = {
@@ -886,286 +915,106 @@ function merge(tree, path, depth) {
   };
 }
 
-// src/indexeddb/flat/Adapter.js
-var import_spark_md53 = __toESM(require_spark_md5(), 1);
-var DOC_STORE = "docs";
-var META_STORE = "meta";
+// src/datamodel.js
 var REVS_LIMIT = 1e3;
 var STATUS_AVAILABLE = { status: "available" };
 var STATUS_MISSING = { status: "missing" };
-var makeRev = (data) => import_spark_md53.default.hash(JSON.stringify(data));
-var parseRev = (rev2) => {
-  const [prefix, id] = rev2.split("-");
+var makeRev = (data) => md5FromString(JSON.stringify(data));
+var parseRev = (rev) => {
+  const [prefix, id] = rev.split("-");
   return [
     parseInt(prefix, 10),
     id
   ];
 };
-var calculateDigest = async (blob) => {
-  const md5 = await calculateMd5(blob);
-  return `md5-${md5}`;
+var extractData = (doc) => {
+  const data = {};
+  for (const key in doc) {
+    if (key.startsWith("_"))
+      continue;
+    data[key] = doc[key];
+  }
+  if (doc._attachments) {
+    data._attachments = {};
+    for (const name in doc._attachments) {
+      const { digest, revpos } = doc._attachments[name];
+      data._attachments[name] = {
+        digest,
+        revpos
+      };
+    }
+  }
+  return data;
 };
-var Adapter = class {
-  constructor({ name }) {
-    this.name = name;
-    this.db = null;
-    this.metadata = null;
-  }
-  async init() {
-    if (this.db)
-      return;
-    return new Promise((resolve, reject) => {
-      const openReq = indexedDB.open(this.name);
-      openReq.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        const keyPath = "id";
-        const docStore = db.createObjectStore(DOC_STORE, { keyPath });
-        docStore.createIndex("seq", "seq", { unique: true });
-        db.createObjectStore(META_STORE, { keyPath });
-      };
-      openReq.onsuccess = (e) => {
-        this.db = e.target.result;
-        this.db.onabort = () => this.db.close();
-        this.db.onversionchange = () => this.db.close();
-        const transaction = this.db.transaction(META_STORE, "readwrite");
-        transaction.oncomplete = () => resolve();
-        const metaStore = transaction.objectStore(META_STORE);
-        metaStore.get(META_STORE).onsuccess = (e2) => {
-          this.metadata = e2.target.result || { id: META_STORE };
-          let changed = false;
-          if (!("doc_count" in this.metadata)) {
-            changed = true;
-            this.metadata.doc_count = 0;
-          }
-          if (!("seq" in this.metadata)) {
-            changed = true;
-            this.metadata.seq = 0;
-          }
-          if (!("db_uuid" in this.metadata)) {
-            changed = true;
-            this.metadata.db_uuid = makeUuid();
-          }
-          if (changed) {
-            metaStore.put(this.metadata);
-          }
-        };
-      };
-      openReq.onerror = (e) => reject(e.target.error);
-      openReq.onblocked = (e) => reject(e);
-    });
-  }
-  destroy() {
-    return new Promise((resolve, reject) => {
-      this.db.close();
-      const req = indexedDB.deleteDatabase(this.name);
-      req.onsuccess = () => {
-        this.db = null;
-        this.metadata = null;
-        resolve();
-      };
-    });
-  }
-  getLocalDoc(id) {
-    const _id = `_local/${id}`;
-    return new Promise((resolve, reject) => {
-      this.db.transaction(DOC_STORE, "readonly").objectStore(DOC_STORE).get(_id).onsuccess = (e) => {
-        const entry = e.target.result;
-        const doc = entry ? entry.data : { _id };
-        resolve(doc);
-      };
-    });
-  }
-  saveLocalDoc(doc) {
-    doc._rev = doc._rev ? doc._rev + 1 : 1;
-    return new Promise((resolve, reject) => {
-      const entry = {
-        id: doc._id,
-        data: doc
-      };
-      this.db.transaction(DOC_STORE, "readwrite").objectStore(DOC_STORE).put(entry).onsuccess = () => resolve({ rev: doc._rev });
-    });
-  }
-  getEntries(ids) {
-    return new Promise((resolve, reject) => {
-      const store = this.db.transaction(DOC_STORE, "readonly").objectStore(DOC_STORE);
-      const entries = {};
-      let cnt = ids.length;
-      for (const id of ids) {
-        store.get(id).onsuccess = (e) => {
-          entries[id] = e.target.result;
-          cnt--;
-          if (cnt === 0) {
-            resolve(entries);
-          }
-        };
-      }
-    });
-  }
-  async getRevs(docs) {
-    const ids = docs.map(({ id }) => id);
-    const entries = await this.getEntries(ids);
-    for (const { id, revs } of docs) {
-      const entry = entries[id];
-      if (!entry) {
-        continue;
-      }
-      rev.entry = entry;
-      for (const rev2 of revs) {
-        const e = entry.revs[rev2.rev];
-        if (!e) {
-          continue;
-        }
-        const { rev_tree: [{ pos, ids: ids2 }] } = entry;
-        const _revisions = { start: pos - 1, ids: [] };
-        let [revId, status, childs] = ids2;
-        while (childs) {
-          _revisions.start += 1;
-          _revisions.ids.unshift(revId);
-          const child = childs[0] || [];
-          revId = child[0];
-          status = child[1];
-          childs = child[2];
-        }
-        const { data, deleted } = e;
-        rev2.doc = {
-          ...data,
-          _id: id,
-          _rev: rev2.rev,
-          _deleted: deleted,
-          _revisions
-        };
-      }
+var revisionsFromRevTree = (rev, tree) => {
+  const splittedRev = rev.split("-");
+  const revNo = parseInt(splittedRev[0], 10);
+  const revHash = splittedRev[1];
+  const paths = rootToLeaf(tree);
+  let path = null;
+  for (var i = 0; i < paths.length; i++) {
+    const currentPath = paths[i];
+    const hashIndex = currentPath.ids.map(({ id }) => id).indexOf(revHash);
+    const hashFoundAtRevPos = hashIndex === revNo - 1;
+    if (hashFoundAtRevPos || !path && hashIndex !== -1) {
+      path = currentPath;
     }
-    return docs;
   }
-  async buildEntriesWithNewEdits(docsWithEntries) {
-    const entries = [];
-    for (const { id, revs, entry: existingEntry } of docsWithEntries) {
-      const seq = ++this.metadata.seq;
-      const entry = {
-        id,
-        seq
-      };
-      for (const { doc } of revs) {
-        const { _id, _rev, _deleted, _attachments, _revisions } = doc;
-        const pos = _revisions.start - _revisions.ids.length + 1;
-        let ids = [
-          _revisions.ids[0],
-          STATUS_AVAILABLE,
-          []
+  if (!path) {
+    throw new Error("invalid rev tree");
+  }
+  const indexOfRev = path.ids.map(({ id }) => id).indexOf(revHash) + 1;
+  const howMany = path.ids.length - indexOfRev;
+  path.ids.splice(indexOfRev, howMany);
+  path.ids.reverse();
+  return {
+    start: path.pos + path.ids.length - 1,
+    ids: path.ids.map(({ id }) => id)
+  };
+};
+var buildEntry = (id) => ({
+  id,
+  tree: [],
+  attachments: {},
+  revs: {}
+});
+var updateEntry = (entry, revs, { newEdits }) => {
+  for (const { doc } of revs) {
+    const { _id, _rev, _deleted, _attachments, _revisions } = doc;
+    const data = extractData(doc);
+    let newRev;
+    let newRevPos;
+    let newRevTree;
+    if (!newEdits) {
+      if (!_revisions) {
+        throw new Error("missing _revisions");
+      }
+      newRevPos = _revisions.start;
+      const pos = newRevPos - _revisions.ids.length + 1;
+      let ids = [
+        _revisions.ids[0],
+        STATUS_AVAILABLE,
+        []
+      ];
+      for (let i = 1, len = _revisions.ids.length; i < len; i++) {
+        ids = [
+          _revisions.ids[i],
+          STATUS_MISSING,
+          [ids]
         ];
-        for (let i = 1, len = _revisions.ids.length; i < len; i++) {
-          ids = [
-            _revisions.ids[i],
-            STATUS_MISSING,
-            [ids]
-          ];
-        }
-        const newRevTree = [{
-          pos,
-          ids
-        }];
-        const existingRevTree = existingEntry ? existingEntry.rev_tree : [];
-        const { tree: revTree, stemmedRevs } = merge(existingRevTree, newRevTree[0], REVS_LIMIT);
-        const winningRev2 = winningRev({ rev_tree: revTree });
-        const winningRevPos = parseInt(winningRev2, 10);
-        const attachments = existingEntry ? existingEntry.attachments : {};
-        if (_attachments) {
-          for (const name in _attachments) {
-            const attachment = _attachments[name];
-            const {
-              content_type,
-              data: data2
-            } = attachment;
-            const digest = attachment.digest;
-            attachment.digest = digest;
-            attachment.revpos = winningRevPos;
-            attachments[digest] = {
-              data: data2,
-              revs: {
-                [winningRev2]: true
-              }
-            };
-          }
-        }
-        const data = {};
-        for (const key in doc) {
-          if (key.startsWith("_"))
-            continue;
-          data[key] = doc[key];
-        }
-        if (doc._attachments) {
-          data._attachments = {};
-          for (const name in doc._attachments) {
-            const { digest, revpos } = doc._attachments[name];
-            data._attachments[name] = {
-              digest,
-              revpos
-            };
-          }
-        }
-        const existingRevs = existingEntry ? existingEntry.revs : null;
-        const revs2 = {
-          ...existingRevs,
-          [_rev]: {
-            data,
-            deleted: !!_deleted
-          }
-        };
-        const revsToCompact = compactTree({ rev_tree: revTree });
-        const revsToDelete = revsToCompact.concat(stemmedRevs);
-        for (const rev2 of revsToDelete) {
-          delete revs2[rev2];
-        }
-        const deleted = revs2[winningRev2].deleted;
-        entry.attachments = attachments;
-        entry.deleted = deleted;
-        entry.rev = winningRev2;
-        entry.rev_tree = revTree;
-        entry.revs = revs2;
       }
-      let delta;
-      if (existingEntry) {
-        if (existingEntry.deleted) {
-          delta = entry.deleted ? 0 : 1;
-        } else {
-          delta = entry.deleted ? -1 : 0;
-        }
-      } else {
-        delta = entry.deleted ? 0 : 1;
-      }
-      this.metadata.doc_count += delta;
-      entries.push(entry);
-    }
-    return entries;
-  }
-  async buildEntries(docsWithEntries) {
-    const entries = [];
-    for (const { doc, existingEntry } of docsWithEntries) {
-      const seq = ++this.metadata.seq;
-      const { _id, _rev, _deleted, _attachments } = doc;
-      const data = {};
-      for (const key in doc) {
-        if (key.startsWith("_"))
-          continue;
-        data[key] = doc[key];
-      }
-      if (doc._attachments) {
-        data._attachments = {};
-        for (const name in doc._attachments) {
-          const { digest, revpos } = doc._attachments[name];
-          data._attachments[name] = {
-            digest,
-            revpos
-          };
-        }
-      }
-      const newRevId = await makeRev({ ...data, _id, _rev, _deleted });
-      let newRevTree;
-      let newRevNum;
-      if (_rev) {
-        const [currentRevPos, currentRevId] = parseRev(doc._rev);
-        newRevNum = currentRevPos + 1;
+      newRev = _rev;
+      newRevTree = [{
+        pos,
+        ids
+      }];
+    } else {
+      const newRevId = makeRev({ ...data, _id, _rev, _deleted });
+      const shouldReattach = newEdits && entry.deleted;
+      if (_rev || shouldReattach) {
+        const baseRev = shouldReattach ? entry.rev : _rev;
+        const [currentRevPos, currentRevId] = parseRev(baseRev);
+        newRevPos = currentRevPos + 1;
         newRevTree = [{
           pos: currentRevPos,
           ids: [
@@ -1181,7 +1030,7 @@ var Adapter = class {
           ]
         }];
       } else {
-        newRevNum = 1;
+        newRevPos = 1;
         newRevTree = [{
           pos: 1,
           ids: [
@@ -1191,123 +1040,307 @@ var Adapter = class {
           ]
         }];
       }
-      const existingRevTree = existingEntry ? existingEntry.rev_tree : [];
-      const { tree: revTree, stemmedRevs } = merge(existingRevTree, newRevTree[0], REVS_LIMIT);
-      const winningRev2 = winningRev({ rev_tree: revTree });
-      const winningRevPos = parseInt(winningRev2, 10);
-      const attachments = existingEntry ? existingEntry.attachments : {};
-      if (_attachments) {
-        for (const name in _attachments) {
-          const attachment = _attachments[name];
-          const {
-            content_type,
-            data: data2,
-            stub
-          } = attachment;
-          if (stub) {
-            attachments[digest].revs[winningRev2] = true;
-            continue;
+      newRev = `${newRevPos}-${newRevId}`;
+    }
+    const { tree, stemmedRevs } = merge(entry.tree, newRevTree[0], REVS_LIMIT);
+    entry.tree = tree;
+    entry.revs[newRev] = {
+      data,
+      deleted: !!_deleted
+    };
+    const winningRev2 = winningRev({ rev_tree: tree });
+    entry.rev = winningRev2;
+    entry.deleted = entry.revs[winningRev2].deleted;
+    if (_attachments) {
+      for (const name in _attachments) {
+        const attachment = _attachments[name];
+        const {
+          stub,
+          data: blob,
+          digest
+        } = attachment;
+        if (!digest) {
+          throw new Error("missing attachment digest");
+        }
+        if (stub) {
+          if (!(digest in entry.attachments)) {
+            throw new Error("missing attachment data for stub");
           }
-          const digest = await calculateDigest(data2);
-          attachment.digest = digest;
-          attachment.revpos = winningRevPos;
-          attachments[digest] = {
-            data: data2,
-            revs: {
-              [winningRev2]: true
+          entry.attachments[digest].revs[newRev] = true;
+        } else {
+          if (digest in entry.attachments) {
+            entry.attachments[digest].revs[newRev] = true;
+          } else {
+            data._attachments[name].revpos = newRevPos;
+            entry.attachments[digest] = {
+              data: blob,
+              revs: {
+                [newRev]: true
+              }
+            };
+          }
+        }
+      }
+    }
+    const revsToCompact = compactTree({ rev_tree: tree });
+    const revsToDelete = revsToCompact.concat(stemmedRevs);
+    for (const rev of revsToDelete) {
+      delete entry.revs[rev];
+      for (const digest in entry.attachments) {
+        const revs2 = entry.attachments[digest].revs;
+        delete revs2[rev];
+        if (Object.keys(revs2).length === 0) {
+          delete entry.attachments[digest];
+        }
+      }
+    }
+  }
+  entry.available = Object.keys(entry.revs).map((rev) => [entry.id, rev]);
+  return entry;
+};
+var docFromEntry = (entry, rev) => {
+  const { id, tree, revs, attachments } = entry;
+  if (!(rev in revs)) {
+    throw new Error(`rev not found: '${id}@${rev.rev}'`);
+  }
+  const { data, deleted } = revs[rev];
+  const _revisions = revisionsFromRevTree(rev, tree);
+  if (data._attachments) {
+    for (const name in data._attachments) {
+      const attachment = data._attachments[name];
+      const blob = attachments[attachment.digest].data;
+      attachment.data = blob;
+      attachment.content_type = blob.type;
+      attachment.length = blob.size;
+    }
+  }
+  return {
+    ...data,
+    _id: id,
+    _rev: rev,
+    _deleted: deleted,
+    _revisions
+  };
+};
+var changeFromEntry = ({ id, rev, seq, deleted, tree }) => {
+  const paths = rootToLeaf(tree);
+  const changes = paths.map(({ pos, ids }) => ({
+    rev: `${pos + ids.length - 1}-${ids.pop().id}`
+  }));
+  return {
+    seq,
+    id,
+    changes,
+    deleted
+  };
+};
+
+// src/indexeddb/flat/Adapter.js
+var DOC_STORE = "docs";
+var META_STORE = "meta";
+var calculateDigest = async (blob) => {
+  const md5 = await md5FromBlob(blob, true);
+  const md5Base64 = btoa(md5);
+  return `md5-${md5Base64}`;
+};
+var IndexedDBFlatAdapter = class extends IndexedDBAdapter {
+  constructor({ name }) {
+    super({ name });
+  }
+  async init() {
+    if (this.db)
+      return;
+    return new Promise((resolve, reject) => {
+      const openReq = indexedDB.open(this.name);
+      openReq.onerror = (e) => reject(e.target.error);
+      openReq.onblocked = (e) => reject(e);
+      openReq.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        const keyPath = "id";
+        const docStore = db.createObjectStore(DOC_STORE, { keyPath });
+        docStore.createIndex("seq", "seq", { unique: true });
+        docStore.createIndex("revs", "available", { multiEntry: true });
+        db.createObjectStore(META_STORE, { keyPath });
+      };
+      openReq.onsuccess = (e) => {
+        this.db = e.target.result;
+        this.db.onabort = () => this.db.close();
+        this.db.onversionchange = () => this.db.close();
+        const transaction = this.db.transaction(META_STORE, "readwrite");
+        transaction.oncomplete = () => resolve();
+        const metaStore = transaction.objectStore(META_STORE);
+        metaStore.get(META_STORE).onsuccess = (e2) => {
+          if (!e2.target.result) {
+            const metadata = {
+              id: META_STORE,
+              doc_count: 0,
+              seq: 0,
+              db_uuid: makeUuid()
+            };
+            metaStore.put(metadata);
+          }
+        };
+      };
+    });
+  }
+  getMetadata() {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(META_STORE, "readonly");
+      transaction.onerror = (e) => reject(e);
+      transaction.objectStore(META_STORE).get(META_STORE).onsuccess = (e) => resolve(e.target.result);
+    });
+  }
+  getLocalDoc(id) {
+    const _id = `_local/${id}`;
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(DOC_STORE, "readonly");
+      transaction.onerror = (e) => reject(e);
+      transaction.objectStore(DOC_STORE).get(_id).onsuccess = (e) => {
+        const entry = e.target.result;
+        const doc = entry ? entry.data : { _id };
+        resolve(doc);
+      };
+    });
+  }
+  saveLocalDoc(doc) {
+    const entry = {
+      id: doc._id,
+      data: {
+        ...doc,
+        _rev: doc._rev ? doc._rev + 1 : 1
+      }
+    };
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(DOC_STORE, "readwrite");
+      transaction.onerror = (e) => reject(e);
+      transaction.objectStore(DOC_STORE).put(entry).onsuccess = () => resolve({ rev: doc._rev });
+    });
+  }
+  async getDiff(batch) {
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(DOC_STORE, "readonly");
+      transaction.onerror = (e) => reject(e);
+      const index = transaction.objectStore(DOC_STORE).index("revs");
+      const result = [];
+      transaction.oncomplete = () => {
+        const filteredResult = result.filter(({ revs }) => revs.length > 0);
+        resolve(filteredResult);
+      };
+      for (const { id, revs } of batch) {
+        const row = { id, revs: [] };
+        for (const { rev } of revs) {
+          index.getKey([id, rev]).onsuccess = (e) => {
+            if (!e.target.result) {
+              row.revs.push({ rev });
             }
           };
         }
+        result.push(row);
       }
-      doc._rev = `${newRevNum}-${newRevId}`;
-      const existingRevs = existingEntry ? existingEntry.revs : null;
-      const revs = {
-        ...existingRevs,
-        [doc._rev]: {
-          data,
-          deleted: !!_deleted
-        }
-      };
-      const deleted = revs[winningRev2].deleted;
-      const entry = {
-        attachments,
-        deleted,
-        id: _id,
-        rev: winningRev2,
-        rev_tree: revTree,
-        revs,
-        seq
-      };
-      const revsToCompact = compactTree({ rev_tree: revTree });
-      const revsToDelete = revsToCompact.concat(stemmedRevs);
-      for (const rev2 of revsToDelete) {
-        delete entry.revs[rev2];
-      }
-      let delta;
-      if (existingEntry) {
-        if (existingEntry.deleted) {
-          delta = deleted ? 0 : 1;
-        } else {
-          delta = deleted ? -1 : 0;
-        }
-      } else {
-        delta = deleted ? 0 : 1;
-      }
-      this.metadata.doc_count += delta;
-      entries.push(entry);
-    }
-    return entries;
+    });
   }
-  async saveEntries(entries) {
+  async getRevs(docs) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([DOC_STORE, META_STORE], "readwrite");
-      const docStore = transaction.objectStore(DOC_STORE);
-      const metaStore = transaction.objectStore(META_STORE);
-      let docsWritten = 0;
-      let cnt = entries.length;
-      for (const entry of entries) {
-        docStore.put(entry).onsuccess = () => {
-          docsWritten++;
-          cnt--;
-          if (cnt === 0) {
-            metaStore.put(this.metadata).onsuccess = () => resolve(docsWritten);
+      const transaction = this.db.transaction(DOC_STORE, "readonly");
+      transaction.onerror = (e) => reject(e);
+      const store = transaction.objectStore(DOC_STORE);
+      transaction.oncomplete = () => resolve(docs);
+      for (const doc of docs) {
+        const { id, revs } = doc;
+        store.get(id).onsuccess = (e) => {
+          const entry = e.target.result;
+          if (!entry) {
+            throw new Error(`doc not found: '${id}'`);
+          }
+          for (const rev of revs) {
+            rev.doc = docFromEntry(entry, rev.rev);
           }
         };
       }
     });
   }
-  async saveRevsWithEntries(docsWithEntries) {
-    const entries = await this.buildEntriesWithNewEdits(docsWithEntries);
-    return this.saveEntries(entries);
-  }
   async saveDocs(docs) {
-    const ids = docs.map(({ _id }) => _id);
-    const entries = await this.getEntries(ids);
-    const docsWithEntries = docs.map((doc) => ({ doc, entry: entries[doc._id] }));
-    const newEntries = await this.buildEntries(docsWithEntries);
-    await this.saveEntries(newEntries);
-    return newEntries.map(({ id, rev: rev2 }) => ({ ok: true, id, rev: rev2 }));
+    const docRevs = docs.map((doc) => ({
+      id: doc._id,
+      revs: [{ doc }]
+    }));
+    return this.saveRevs(docRevs, { newEdits: true });
+  }
+  async saveRevs(docRevs, { newEdits }) {
+    for (const { id, revs } of docRevs) {
+      for (const { doc: { _attachments } } of revs) {
+        if (!_attachments)
+          continue;
+        for (const name in _attachments) {
+          const attachment = _attachments[name];
+          const { data } = attachment;
+          if (!data)
+            continue;
+          attachment.digest = await calculateDigest(data);
+        }
+      }
+    }
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([DOC_STORE, META_STORE], "readwrite");
+      transaction.onerror = (e) => reject(e);
+      const result = [];
+      transaction.oncomplete = () => resolve(result);
+      const docStore = transaction.objectStore(DOC_STORE);
+      const metaStore = transaction.objectStore(META_STORE);
+      metaStore.get(META_STORE).onsuccess = (e) => {
+        const metadata = e.target.result;
+        let cnt = docRevs.length;
+        for (const { id, revs } of docRevs) {
+          docStore.get(id).onsuccess = (e2) => {
+            const existingEntry = e2.target.result;
+            const isNew = !existingEntry;
+            const wasDeleted = existingEntry && existingEntry.deleted;
+            const entry = existingEntry || buildEntry(id);
+            const updatedEntry = updateEntry(entry, revs, { newEdits });
+            updatedEntry.seq = ++metadata.seq;
+            const isDeleted = updatedEntry.deleted;
+            docStore.put(updatedEntry).onsuccess = () => {
+              result.docsWritten++;
+              let delta = 0;
+              if (isNew) {
+                delta = 1;
+              } else {
+                if (!wasDeleted && isDeleted)
+                  delta = -1;
+                if (wasDeleted && !isDeleted)
+                  delta = 1;
+              }
+              metadata.doc_count += delta;
+              result.push({ id, rev: updatedEntry.rev });
+              cnt--;
+              if (cnt === 0) {
+                metaStore.put(metadata);
+              }
+            };
+          };
+        }
+      };
+    });
   }
   async getChanges({ since, limit } = {}) {
     since = since || -1;
     limit = limit || -1;
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction(DOC_STORE, "readonly");
-      const store = transaction.objectStore(DOC_STORE).index("seq");
-      const req = store.openCursor(IDBKeyRange.lowerBound(since, true));
+      transaction.onerror = (e) => reject(e);
+      const index = transaction.objectStore(DOC_STORE).index("seq");
       const changes = [];
       let lastSeq = -1;
       let received = 0;
-      req.onsuccess = (e) => {
+      index.openCursor(IDBKeyRange.lowerBound(since, true)).onsuccess = (e) => {
         if (!e.target.result) {
           return;
         }
         const cursor = e.target.result;
-        const doc = cursor.value;
-        const { id, rev: rev2, seq, deleted } = doc;
-        const change = { seq, id, changes: [{ rev: rev2 }], deleted };
+        const entry = cursor.value;
+        const change = changeFromEntry(entry);
         changes.push(change);
-        lastSeq = seq;
+        lastSeq = change.seq;
         received++;
         if (received !== limit) {
           cursor.continue();
@@ -1318,7 +1351,7 @@ var Adapter = class {
   }
 };
 
-// src/base/Replicator.js
+// src/Replicator.js
 var Replicator = class {
   async getInfo() {
     throw new Error(`getInfo is not implemented for ${this.constructor.name}`);
@@ -1359,8 +1392,8 @@ var GetChangesReadableStream = class extends ReadableStream {
           controller.close();
           return;
         }
-        const { id, changes: revs, deleted } = changes.shift();
-        controller.enqueue({ id, revs, deleted });
+        const { id, changes: revs } = changes.shift();
+        controller.enqueue({ id, revs });
       }
     });
   }
@@ -1370,24 +1403,9 @@ var FilterMissingRevsTransformStream = class extends TransformStream {
     super({
       async transform(batchOfChanges, controller) {
         const ids = batchOfChanges.map(({ id }) => id);
-        const entries = await adapter.getEntries(ids);
-        for (const { id, revs } of batchOfChanges) {
-          const entry = entries[id];
-          if (entry) {
-            const filteredRevs = revs.filter(({ rev: rev2 }) => !(rev2 in entry.revs));
-            if (filteredRevs.length > 0) {
-              controller.enqueue({
-                id,
-                revs: filteredRevs,
-                entry
-              });
-            }
-          } else {
-            controller.enqueue({
-              id,
-              revs
-            });
-          }
+        const revs = await adapter.getDiff(batchOfChanges);
+        for (const rev of revs) {
+          controller.enqueue(rev);
         }
       }
     }, { highWaterMark: 8 }, { highWaterMark: 1024 });
@@ -1414,18 +1432,19 @@ var SaveDocsWritableStream = class extends WritableStream {
     stats.docsWritten = 0;
     super({
       async write(revs) {
-        stats.docsWritten += await adapter.saveRevsWithEntries(revs);
+        const result = await adapter.saveRevs(revs, { newEdits: false });
+        stats.docsWritten += result.length;
       }
     }, { highWaterMark: 1024 * 4 });
   }
 };
-var Replicator2 = class extends Replicator {
+var IndexedDBFlatReplicator = class extends Replicator {
   constructor(adapter) {
     super();
     this.adapter = adapter;
   }
-  getInfo() {
-    const { db_uuid, seq } = this.adapter.metadata;
+  async getInfo() {
+    const { db_uuid, seq } = await this.adapter.getMetadata();
     return {
       uuid: db_uuid,
       updateSeq: seq
@@ -1452,281 +1471,37 @@ var Replicator2 = class extends Replicator {
 };
 
 // src/indexeddb/flat/Database.js
-var IndexedDBFlatDatabase = class extends Database {
+var IndexedDBFlatDatabase = class extends IndexedDBDatabase {
   constructor({ name }) {
+    super({ name });
+    this.adapter = new IndexedDBFlatAdapter({ name });
+    this.replicator = new IndexedDBFlatReplicator(this.adapter);
+  }
+};
+
+// src/http/Database.js
+var HttpDatabase = class extends Database {
+  constructor() {
     super();
-    this.name = name;
-    this.adapter = new Adapter({ name });
-    this.replicator = new Replicator2(this.adapter);
   }
-  init() {
-    return this.adapter.init();
-  }
-  destroy() {
-    return this.adapter.destroy();
+  async getDoc(id) {
+    const response = await this.adapter.getDoc(id);
+    return response.json();
   }
   async saveDoc(doc) {
-    const [response] = await this.adapter.saveDocs([doc]);
+    const response = await this.adapter.saveDoc(doc);
     this.dispatchEvent(new Event("change"));
-    return response;
+    return response.json();
+  }
+  async deleteDoc(doc) {
+    const response = await this.adapter.deleteDoc(doc);
+    this.dispatchEvent(new Event("change"));
+    return response.json();
   }
 };
 
-// src/indexeddb/normalized/Adapter.js
-var SEQ_STORE = "seqs";
-var DOC_STORE2 = "docs";
-var LOCAL_DOC_STORE = "local-docs";
-var REV_STORE = "revs";
-var ATT_STORE = "atts";
-var META_STORE2 = "meta";
-var REVS_LIMIT2 = 1e3;
-var STATUS_AVAILABLE2 = { status: "available" };
-var STATUS_MISSING2 = { status: "missing" };
-var Adapter2 = class {
-  constructor({ name }) {
-    this.name = name;
-    this.db = null;
-    this.metadata = null;
-  }
-  async init() {
-    if (this.db)
-      return;
-    return new Promise((resolve, reject) => {
-      const openReq = indexedDB.open(this.name);
-      openReq.onupgradeneeded = (e) => {
-        const db = e.target.result;
-        db.createObjectStore(SEQ_STORE, { autoIncrement: true });
-        db.createObjectStore(DOC_STORE2, { keyPath: "id" });
-        db.createObjectStore(LOCAL_DOC_STORE, { keyPath: "id" });
-        db.createObjectStore(REV_STORE, { keyPath: ["id", "rev"] });
-        db.createObjectStore(ATT_STORE, { keyPath: ["id", "name", "digest"] });
-        db.createObjectStore(META_STORE2, { keyPath: "id" });
-      };
-      openReq.onsuccess = (e) => {
-        this.db = e.target.result;
-        this.db.onabort = () => this.db.close();
-        this.db.onversionchange = () => this.db.close();
-        const transaction = this.db.transaction(META_STORE2, "readwrite");
-        transaction.oncomplete = () => resolve();
-        const metaStore = transaction.objectStore(META_STORE2);
-        metaStore.get(META_STORE2).onsuccess = (e2) => {
-          this.metadata = e2.target.result || { id: META_STORE2 };
-          if (!("uuid" in this.metadata)) {
-            this.metadata.uuid = makeUuid();
-            metaStore.put(this.metadata);
-          }
-        };
-      };
-      openReq.onerror = (e) => reject(e.target.error);
-      openReq.onblocked = (e) => reject(e);
-    });
-  }
-  destroy() {
-    return new Promise((resolve, reject) => {
-      this.db.close();
-      const req = indexedDB.deleteDatabase(this.name);
-      req.onsuccess = () => {
-        this.db = null;
-        this.metadata = null;
-        resolve();
-      };
-    });
-  }
-  getLocalDoc(id) {
-    const _id = `_local/${id}`;
-    return new Promise((resolve, reject) => {
-      this.db.transaction(LOCAL_DOC_STORE, "readonly").objectStore(LOCAL_DOC_STORE).get(_id).onsuccess = (e) => {
-        const entry = e.target.result;
-        const doc = entry ? entry.data : { _id };
-        resolve(doc);
-      };
-    });
-  }
-  saveLocalDoc(doc) {
-    doc._rev = doc._rev ? doc._rev + 1 : 1;
-    return new Promise((resolve, reject) => {
-      const entry = {
-        id: doc._id,
-        data: doc
-      };
-      this.db.transaction(LOCAL_DOC_STORE, "readwrite").objectStore(LOCAL_DOC_STORE).put(entry).onsuccess = () => resolve({ rev: doc._rev });
-    });
-  }
-  getEntries(ids) {
-    return new Promise((resolve, reject) => {
-      const store = this.db.transaction(DOC_STORE2, "readonly").objectStore(DOC_STORE2);
-      const entries = {};
-      let cnt = ids.length;
-      for (const id of ids) {
-        store.get(id).onsuccess = (e) => {
-          entries[id] = e.target.result;
-          cnt--;
-          if (cnt === 0) {
-            resolve(entries);
-          }
-        };
-      }
-    });
-  }
-  async buildEntries(docsWithEntries) {
-    const entries = [];
-    for (const { doc: cDoc, existingEntry } of docsWithEntries) {
-      const { _id: id, _rev, _deleted, _attachments, _revisions } = cDoc;
-      const pos = _revisions.start - _revisions.ids.length + 1;
-      let ids = [
-        _revisions.ids[0],
-        STATUS_AVAILABLE2,
-        []
-      ];
-      for (let i = 1, len = _revisions.ids.length; i < len; i++) {
-        ids = [
-          _revisions.ids[i],
-          STATUS_MISSING2,
-          [ids]
-        ];
-      }
-      const newRevTree = [{
-        pos,
-        ids
-      }];
-      const existingRevTree = existingEntry ? existingEntry.rev_tree : [];
-      const { tree, stemmedRevs } = merge(existingRevTree, newRevTree[0], REVS_LIMIT2);
-      const winningRev2 = winningRev({ rev_tree: tree });
-      const winningRevPos = parseInt(winningRev2, 10);
-      const atts = existingEntry ? existingEntry.atts : [];
-      if (_attachments) {
-        for (const name in _attachments) {
-          const attachment = _attachments[name];
-          const {
-            content_type,
-            data: data2
-          } = attachment;
-          const digest = attachment.digest;
-          attachment.digest = digest;
-          attachment.revpos = winningRevPos;
-          atts.push({
-            id,
-            name,
-            digest,
-            data: data2
-          });
-        }
-      }
-      const data = {};
-      for (const key in cDoc) {
-        if (key.startsWith("_"))
-          continue;
-        data[key] = cDoc[key];
-      }
-      if (cDoc._attachments) {
-        data._attachments = {};
-        for (const name in cDoc._attachments) {
-          const { digest, revpos } = cDoc._attachments[name];
-          data._attachments[name] = {
-            digest,
-            revpos
-          };
-        }
-      }
-      const rev2 = {
-        id,
-        rev: _rev,
-        data
-      };
-      const deleted = !!_deleted;
-      const doc = {
-        id,
-        deleted,
-        rev: winningRev2,
-        tree
-      };
-      const seq = {
-        id,
-        rev: _rev
-      };
-      const entry = {
-        atts,
-        rev: rev2,
-        doc,
-        seq
-      };
-      entries.push(entry);
-    }
-    return entries;
-  }
-  async saveEntries(entries) {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([ATT_STORE, REV_STORE, DOC_STORE2, SEQ_STORE], "readwrite");
-      const attStore = transaction.objectStore(ATT_STORE);
-      const revStore = transaction.objectStore(REV_STORE);
-      const docStore = transaction.objectStore(DOC_STORE2);
-      const seqStore = transaction.objectStore(SEQ_STORE);
-      let docsWritten = 0;
-      let cnt = entries.length;
-      for (const { atts, rev: rev2, doc, seq } of entries) {
-        const saveEntry = () => {
-          revStore.put(rev2).onsuccess = () => {
-            docStore.put(doc).onsuccess = () => {
-              seqStore.put(seq).onsuccess = () => {
-                docsWritten++;
-                cnt--;
-                if (cnt === 0) {
-                  resolve(docsWritten);
-                }
-              };
-            };
-          };
-        };
-        let attCnt = atts.length;
-        if (attCnt > 0) {
-          for (const att of atts) {
-            attStore.put(att).onsuccess = () => {
-              attCnt--;
-              if (attCnt === 0) {
-                saveEntry();
-              }
-            };
-          }
-        } else {
-          saveEntry();
-        }
-      }
-    });
-  }
-  async saveDocs(docsWithEntries) {
-    const entries = await this.buildEntries(docsWithEntries);
-    return this.saveEntries(entries);
-  }
-};
-
-// src/indexeddb/normalized/Replicator.js
-var Replicator3 = class extends Replicator2 {
-  getInfo() {
-    const { uuid } = this.adapter.metadata;
-    return {
-      uuid
-    };
-  }
-};
-
-// src/indexeddb/normalized/Database.js
-var IndexedDBNormalizedDatabase = class extends Database {
-  constructor({ name }) {
-    super();
-    this.name = name;
-    this.adapter = new Adapter2({ name });
-    this.replicator = new Replicator3(this.adapter);
-  }
-  init() {
-    return this.adapter.init();
-  }
-  destroy() {
-    return this.adapter.destroy();
-  }
-};
-
-// src/http/multipart/Adapter.js
-var Adapter3 = class {
+// src/http/Adapter.js
+var HttpAdapter = class {
   constructor({ url, headers }) {
     this.url = url;
     this.root = url.pathname;
@@ -1829,25 +1604,6 @@ var Adapter3 = class {
     }
     return response;
   }
-  async bulkGet(docs) {
-    const url = new URL(`${this.root}/_bulk_get`, this.url);
-    url.searchParams.set("revs", "true");
-    url.searchParams.set("attachments", "true");
-    const body = JSON.stringify({ docs });
-    const response = await fetch(url, {
-      headers: {
-        ...this.headers,
-        "Content-Type": "application/json",
-        "Accept": "multipart/related"
-      },
-      method: "post",
-      body
-    });
-    if (response.status !== 200) {
-      throw new Error("Could not get docs multipart");
-    }
-    return response;
-  }
   async bulkDocs(docs) {
     const url = new URL(`${this.root}/_bulk_docs`, this.url);
     const body = JSON.stringify({ docs, new_edits: false });
@@ -1866,161 +1622,32 @@ var Adapter3 = class {
   }
 };
 
-// node_modules/multipart-related/src/first-boundary-position.js
-function firstBoundaryPosition(data, boundary, offset = 0) {
-  if (offset > data.length + boundary.length + 2) {
-    return -1;
+// src/http/inline/Adapter.js
+var HttpInlineAdapter = class extends HttpAdapter {
+  constructor({ url, headers }) {
+    super({ url, headers });
   }
-  for (let i = offset; i < data.length; i++) {
-    if (data[i] === 45 && data[i + 1] === 45) {
-      let fullMatch, k;
-      for (k = 0; k < boundary.length; k++) {
-        fullMatch = true;
-        if (data[k + i + 2] !== boundary[k]) {
-          fullMatch = false;
-          break;
-        }
-      }
-      if (fullMatch)
-        return i;
+  async bulkGet(docs) {
+    const url = new URL(`${this.root}/_bulk_get`, this.url);
+    url.searchParams.set("revs", "true");
+    url.searchParams.set("attachments", "true");
+    const body = JSON.stringify({ docs });
+    const response = await fetch(url, {
+      headers: {
+        ...this.headers,
+        "Content-Type": "application/json"
+      },
+      method: "post",
+      body
+    });
+    if (response.status !== 200) {
+      throw new Error("Could not get docs multipart");
     }
-  }
-  return -1;
-}
-
-// node_modules/multipart-related/src/first-header-separator-position.js
-function firstHeaderSeparatorPosition(data, offset = 0) {
-  if (offset > data.length + 4) {
-    return -1;
-  }
-  for (let i = offset; i < data.length; i++) {
-    if (data[i] === 13 && data[i + 1] === 10 && data[i + 2] === 13 && data[i + 3] === 10) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-// node_modules/multipart-related/src/starts-with-boundary-end.js
-function startsWithBoundaryEnd(data, boundary, offset = 0) {
-  if (offset > data.length + boundary.length + 4) {
-    return false;
-  }
-  if (data[offset] !== 45)
-    return false;
-  if (data[offset + 1] !== 45)
-    return false;
-  if (data[offset + boundary.length + 2] !== 45)
-    return false;
-  if (data[offset + boundary.length + 3] !== 45)
-    return false;
-  for (let i = 0; i < boundary.length; i++) {
-    if (data[i + offset + 2] !== boundary[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// node_modules/multipart-related/src/multipart-related-parser.js
-var MultipartRelatedParser = class {
-  constructor(contentType) {
-    this.encoder = new TextEncoder();
-    this.decoder = new TextDecoder();
-    const boundary = this.parseContentType(contentType);
-    this.id = boundary.id;
-    this.boundaries = [
-      boundary
-    ];
-  }
-  parseContentType(contentType) {
-    const [_, type, id] = contentType.match(/^([^;]+);\s*boundary="?([^="]+)"?/) || [];
-    if (type !== "multipart/related")
-      return;
-    const boundary = this.encoder.encode(id);
-    return {
-      id,
-      boundary
-    };
-  }
-  parsePart(data) {
-    if (this.boundaries.length === 0)
-      return null;
-    const { id, boundary } = this.boundaries[this.boundaries.length - 1];
-    const startPosition = firstBoundaryPosition(data, boundary);
-    if (startPosition === -1)
-      return null;
-    const contentPosition = firstHeaderSeparatorPosition(data, startPosition);
-    if (contentPosition === -1)
-      return null;
-    const headerData = data.slice(boundary.length + 4, contentPosition);
-    const header = this.decoder.decode(headerData);
-    const headers = header.split("\r\n").reduce((memo, line) => {
-      const [name, value] = line.split(/:\s*/);
-      memo[name] = name === "Content-Length" ? parseInt(value, 10) : value;
-      return memo;
-    }, {});
-    const { "Content-Type": contentType } = headers;
-    if (!contentType)
-      return null;
-    const { "Content-Length": contentLength } = headers;
-    const contentEndPosition = contentLength ? firstBoundaryPosition(data, boundary, contentLength + contentPosition + 6) : firstBoundaryPosition(data, boundary, contentPosition + 4);
-    if (contentEndPosition === -1)
-      return null;
-    if (data.length < contentEndPosition)
-      return null;
-    const childBoundary = this.parseContentType(contentType);
-    if (childBoundary) {
-      this.boundaries.push(childBoundary);
-      return this.parsePart(data.slice(contentPosition + 4));
-    }
-    const isBoundaryEnd = startsWithBoundaryEnd(data, boundary, contentEndPosition);
-    const endPosition = isBoundaryEnd ? contentEndPosition + boundary.length + 6 : contentEndPosition;
-    if (isBoundaryEnd)
-      this.boundaries.pop();
-    const partData = data.slice(contentPosition + 4, contentEndPosition - 2);
-    const rest = data.slice(endPosition);
-    return {
-      boundary: this.id === id ? null : id,
-      headers,
-      data: partData,
-      rest
-    };
+    return response;
   }
 };
 
-// node_modules/multipart-related/src/index.js
-var MultipartRelated = class {
-  constructor(contentType) {
-    this.parser = new MultipartRelatedParser(contentType);
-    this.data = new Uint8Array(0);
-  }
-  read(chunk) {
-    if (chunk) {
-      const newData = new Uint8Array(this.data.length + chunk.length);
-      newData.set(this.data, 0);
-      newData.set(chunk, this.data.length);
-      this.data = newData;
-    }
-    const parts = [];
-    let part;
-    do {
-      part = this.parser.parsePart(this.data);
-      if (part) {
-        const { boundary, headers, data, rest } = part;
-        this.data = rest;
-        parts.push({
-          boundary,
-          headers,
-          data
-        });
-      }
-    } while (part);
-    return parts;
-  }
-};
-
-// src/http/multipart/Replicator.js
+// src/http/Replicator.js
 var GetChangesReadableStream2 = class extends ReadableStream {
   constructor(adapter, { since, limit }) {
     let reader;
@@ -2071,12 +1698,12 @@ var ChangesParserTransformStream = class extends TransformStream {
             } catch (e) {
               throw new Error("could not parse change JSON");
             }
-            const { last_seq, id, changes: revs, deleted } = change;
+            const { last_seq, id, changes: revs } = change;
             if (last_seq) {
               stats.lastSeq = last_seq;
             } else {
               stats.numberOfChanges++;
-              controller.enqueue({ id, revs, deleted });
+              controller.enqueue({ id, revs });
             }
           }
           this.data = this.data.slice(endPosition + 1);
@@ -2093,16 +1720,16 @@ var FilterMissingRevsTransformStream2 = class extends TransformStream {
       async transform(batch, controller) {
         const payload = {};
         for (const { id, revs } of batch) {
-          payload[id] = revs.map(({ rev: rev2 }) => rev2);
+          payload[id] = revs.map(({ rev }) => rev);
         }
         const response = await adapter.revsDiff(payload);
         const diff = await response.json();
         for (const id in diff) {
-          if (!(missing in diff[id])) {
+          if (!("missing" in diff[id])) {
             throw new Error("missing `missing` property in revsDiff response");
           }
           const { missing } = diff[id];
-          const revs = missing.map((rev2) => ({ rev: rev2 }));
+          const revs = missing.map((rev) => ({ rev }));
           if (revs.length > 0) {
             controller.enqueue({ id, revs });
           }
@@ -2111,149 +1738,7 @@ var FilterMissingRevsTransformStream2 = class extends TransformStream {
     });
   }
 };
-var GetRevsTransformStream = class extends TransformStream {
-  constructor(adapter, stats) {
-    stats.docsRead = 0;
-    const decoder = new TextDecoder();
-    const assembleDoc = async (parts) => {
-      if (parts.length === 0)
-        return;
-      const { headers, data } = parts.shift();
-      const docContentType = headers["Content-Type"];
-      if (!docContentType) {
-        throw new Error("missing Content-Type header for first part");
-      }
-      if (docContentType !== "application/json") {
-        throw new Error(`wrong Content-Type header for first part '${docContentType}', must be application/json`);
-      }
-      const json = decoder.decode(data);
-      let doc;
-      try {
-        doc = JSON.parse(json);
-      } catch (e) {
-        throw new Error("Error parsing doc JSON");
-      }
-      for (const { headers: headers2, data: data2 } of parts) {
-        const contentDisposition = headers2["Content-Disposition"];
-        if (!contentDisposition) {
-          throw new Error("attachment with missing Content-Disposition header");
-        }
-        const [_, filename] = contentDisposition.match(/filename="([^"]+)"/);
-        if (!filename) {
-          throw new Error(`missing filename in Content-Disposition header '${contentDisposition}'`);
-        }
-        if (!(filename in doc._attachments)) {
-          throw new Error(`missing filename '${filename}' in docs attachments stub`);
-        }
-        const type = headers2["Content-Type"];
-        if (!type) {
-          throw new Error("missing Content-Type header");
-        }
-        const blob = new Blob([data2], { type });
-        const contentEncoding = headers2["Content-Encoding"];
-        if (contentEncoding === "gzip") {
-          doc._attachments[filename].data = await gunzip(blob, type);
-          delete doc._attachments[filename].follows;
-          delete doc._attachments[filename].encoding;
-          delete doc._attachments[filename].encoded_length;
-        } else if (contentEncoding) {
-          throw new Error(`unsupported Content-Encoding '${contentEncoding}'. Must be 'gzip'`);
-        } else {
-          doc._attachments[filename].data = blob;
-          delete doc._attachments[filename].follows;
-        }
-      }
-      return doc;
-    };
-    super({
-      async transform(batch, controller) {
-        if (batch.length === 0)
-          return;
-        const docs = [];
-        const batchById = {};
-        for (const row of batch) {
-          const { id, revs } = row;
-          batchById[id] = row;
-          for (const { rev: rev2 } of revs) {
-            docs.push({ id, rev: rev2 });
-          }
-        }
-        if (docs.length === 0) {
-          throw new Error("received messages with empty revs");
-        }
-        const response = await adapter.bulkGet(docs);
-        const contentType = response.headers.get("Content-Type");
-        const parser = new MultipartRelated(contentType);
-        const reader = response.body.getReader();
-        let lastId;
-        const docsById = {};
-        const emitDoc = async (parts, flush) => {
-          const doc = await assembleDoc(parts);
-          if (doc) {
-            const { _id: id, _rev: rev2 } = doc;
-            docsById[id] = docsById[id] || {};
-            docsById[id][rev2] = doc;
-            if (flush || lastId && lastId !== id) {
-              if (!(id in batchById)) {
-                throw new Error(`received a doc which was not requested: '${id}'`);
-              }
-              const row = batchById[id];
-              const revs = [];
-              for (const rev3 of row.revs) {
-                if (rev3.rev in docsById[id]) {
-                  const doc2 = docsById[id][rev3.rev];
-                  revs.push({ rev: rev3, doc: doc2 });
-                } else {
-                  console.warn(`could not fetch rev '${rev3.rev}' for doc '${id}'`);
-                }
-              }
-              controller.enqueue({ ...row, revs });
-              stats.docsRead++;
-            }
-            lastId = id;
-          }
-        };
-        let batchComplete = false;
-        let currentParts = [];
-        let currentBoundary = null;
-        do {
-          const { done, value } = await reader.read();
-          const parts = parser.read(value);
-          for (const part of parts) {
-            if (!part.boundary) {
-              emitDoc(currentParts);
-              currentParts = [];
-              currentBoundary = null;
-              emitDoc([part]);
-            } else if (currentBoundary && currentBoundary !== part.boundary) {
-              emitDoc(currentParts);
-              currentParts = [part];
-              currentBoundary = null;
-            } else {
-              currentParts.push(part);
-              currentBoundary = part.boundary;
-            }
-          }
-          batchComplete = done;
-        } while (!batchComplete);
-        emitDoc(currentParts, true);
-      }
-    }, { highWaterMark: 8 }, { highWaterMark: 1024 * 4 });
-  }
-};
-var SaveDocsWritableStream2 = class extends WritableStream {
-  constructor(adapter, stats = {}) {
-    stats.docsWritten = 0;
-    super({
-      async write(batch) {
-        const payload = batch.reduce((memo, { revs }) => memo.concat(revs.map(({ doc }) => doc)), []);
-        const response = await adapter.bulkDocs(payload);
-        stats.docsWritten += batch.length;
-      }
-    });
-  }
-};
-var Replicator4 = class extends Replicator {
+var HttpReplicator = class extends Replicator {
   constructor(adapter) {
     super();
     this.adapter = adapter;
@@ -2291,6 +1776,173 @@ var Replicator4 = class extends Replicator {
   getDiff() {
     return new FilterMissingRevsTransformStream2(this.adapter);
   }
+};
+
+// src/http/inline/BulkGetParser.js
+var objectOpen = 123;
+var objectClose = 125;
+var string = 34;
+var backslash = 92;
+var BulkGetParser = class {
+  constructor() {
+    this.decoder = new TextDecoder();
+    this.data = new Uint8Array(0);
+    this.objectLevel = 0;
+    this.onDoc = void 0;
+  }
+  async write(chunk) {
+    if (chunk) {
+      const newData = new Uint8Array(this.data.length + chunk.length);
+      newData.set(this.data, 0);
+      newData.set(chunk, this.data.length);
+      this.data = newData;
+    }
+    let objectLevel = 0 + this.objectLevel;
+    let objectStart = -1;
+    let objectEnd = -1;
+    let innerString = false;
+    let escaping = false;
+    for (let i = 0; i < this.data.length; i++) {
+      if (this.data[i] === string && !escaping) {
+        innerString = !innerString;
+      }
+      escaping = innerString && this.data[i] === backslash;
+      if (innerString)
+        continue;
+      if (this.data[i] === objectOpen) {
+        objectLevel++;
+        if (objectLevel === 2) {
+          objectStart = i;
+        }
+      }
+      if (this.data[i] === objectClose) {
+        if (objectLevel === 2) {
+          const json = this.decoder.decode(this.data.slice(objectStart, i + 1));
+          const doc = JSON.parse(json);
+          await this.onDoc(doc);
+          objectStart = -1;
+          objectEnd = i + 1;
+        }
+        objectLevel--;
+      }
+    }
+    if (objectEnd > -1) {
+      this.data = this.data.slice(objectEnd);
+      this.objectLevel = 1;
+    } else if (objectStart > -1) {
+      this.data = this.data.slice(objectStart);
+      this.objectLevel = 1;
+    }
+  }
+};
+
+// src/http/inline/Replicator.js
+var base64ToBlob = (data, type) => {
+  const raw = atob(data);
+  const length = raw.length;
+  const uInt8Array = new Uint8Array(length);
+  for (let i = 0; i < length; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i);
+  }
+  return new Blob([uInt8Array], { type });
+};
+var blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dec = `data:${blob.type};base64,`;
+      const data = reader.result.slice(dec.length);
+      resolve(data);
+    };
+    reader.readAsDataURL(blob);
+  });
+};
+var GetRevsTransformStream = class extends TransformStream {
+  constructor(adapter, stats) {
+    stats.docsRead = 0;
+    super({
+      async transform(batch, controller) {
+        if (batch.length === 0)
+          return;
+        const docs = [];
+        const batchById = {};
+        for (const row of batch) {
+          const { id, revs } = row;
+          batchById[id] = row;
+          for (const { rev } of revs) {
+            docs.push({ id, rev });
+          }
+        }
+        if (docs.length === 0) {
+          throw new Error("received messages with empty revs");
+        }
+        const response = await adapter.bulkGet(docs);
+        const reader = response.body.getReader();
+        const bulkDocsParser = new BulkGetParser();
+        bulkDocsParser.onDoc = async (r) => {
+          const { id, docs: docs2 } = r;
+          if (!(id in batchById)) {
+            console.log(r);
+            throw new Error("recived doc which we did not ask for");
+          }
+          const byRev = {};
+          for (const { ok: doc } of docs2) {
+            byRev[doc._rev] = doc;
+            if (doc._attachments) {
+              for (const name in doc._attachments) {
+                const attachment = doc._attachments[name];
+                const { data, content_type } = attachment;
+                attachment.data = await base64ToBlob(data, content_type);
+              }
+            }
+          }
+          const row = batchById[id];
+          for (const rev of row.revs) {
+            if (rev.rev in byRev) {
+              rev.doc = byRev[rev.rev];
+            }
+          }
+          controller.enqueue(row);
+          stats.docsRead++;
+        };
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done)
+            break;
+          await bulkDocsParser.write(value);
+        }
+      }
+    }, { highWaterMark: 8 }, { highWaterMark: 1024 * 4 });
+  }
+};
+var SaveDocsWritableStream2 = class extends WritableStream {
+  constructor(adapter, stats = {}) {
+    stats.docsWritten = 0;
+    super({
+      async write(batch) {
+        const revs = batch.reduce((memo, { revs: revs2 }) => memo.concat(revs2.map(({ doc }) => doc)), []);
+        if (revs.length > 0) {
+          for (const doc of revs) {
+            if (doc._attachments) {
+              for (const name in doc._attachments) {
+                const attachment = doc._attachments[name];
+                const { data } = attachment;
+                attachment.data = await blobToBase64(data);
+              }
+            }
+          }
+          const response = await adapter.bulkDocs(revs);
+        }
+        stats.docsWritten += batch.length;
+      }
+    });
+  }
+};
+var HttpInlineReplicator = class extends HttpReplicator {
+  constructor(adapter) {
+    super();
+    this.adapter = adapter;
+  }
   getRevs(stats = {}) {
     return new GetRevsTransformStream(this.adapter, stats);
   }
@@ -2299,151 +1951,15 @@ var Replicator4 = class extends Replicator {
   }
 };
 
-// src/http/multipart/Database.js
-var HttpMultipartDatabase = class extends Database {
+// src/http/inline/Database.js
+var HttpInlineDatabase = class extends HttpDatabase {
   constructor({ url, headers }) {
     super();
-    this.adapter = new Adapter3({ url, headers });
-    this.replicator = new Replicator4(this.adapter);
-  }
-  async getDoc(id) {
-    const response = await this.adapter.getDoc(id);
-    return response.json();
-  }
-  async saveDoc(doc) {
-    const response = await this.adapter.saveDoc(doc);
-    this.dispatchEvent(new Event("change"));
-    return response.json();
-  }
-  async deleteDoc(doc) {
-    const response = await this.adapter.deleteDoc(doc);
-    this.dispatchEvent(new Event("change"));
-    return response.json();
-  }
-};
-
-// src/fake/Replicator.js
-var FakeReplicator = class extends Replicator {
-  constructor(database) {
-    super();
-    this.database = database;
-  }
-  getInfo() {
-    const { uuid, updateSeq } = this.database;
-    const info = {
-      uuid,
-      updateSeq
-    };
-    console.log("getInfo", info);
-    return info;
-  }
-  getLog(id) {
-    console.log("getLog %s", id);
-    return {
-      _id: `_local/${id}`
-    };
-  }
-  saveLog(log) {
-    console.log("saveLog", log);
-    return {
-      rev: "1-fake-log-rev"
-    };
-  }
-  getChanges(since, { limit } = {}, stats = {}) {
-    const database = this.database;
-    return new ReadableStream({
-      start(controller) {
-        console.log("getting changes since %s", since);
-        controller.enqueue({
-          id: "changed-fake-doc-a",
-          revs: [
-            { rev: "1-change-a" },
-            { rev: "2-change-a" }
-          ]
-        });
-        controller.enqueue({
-          id: "changed-fake-doc-b",
-          revs: [
-            { rev: "1-change-b" }
-          ]
-        });
-        stats.numberOfChanges = 2;
-        stats.lastSeq = database.updateSeq;
-        controller.close();
-      }
-    });
-  }
-  getDiff() {
-    return new TransformStream({
-      transform(changes, controller) {
-        console.log("geting diff", changes);
-        for (const change of changes) {
-          controller.enqueue(change);
-        }
-      }
-    });
-  }
-  getRevs(stats = {}) {
-    stats.docsRead = 0;
-    return new TransformStream({
-      transform(changes, controller) {
-        console.log("getting revs", changes);
-        for (const { id, revs } of changes) {
-          controller.enqueue({
-            id,
-            revs: revs.map(({ rev: rev2 }) => ({
-              rev: rev2,
-              doc: {
-                _id: id,
-                _rev: rev2,
-                foo: "bar"
-              }
-            }))
-          });
-        }
-        stats.docsRead += changes.length;
-      }
-    });
-  }
-  saveRevs(stats = {}) {
-    stats.docsWritten = 0;
-    const database = this.database;
-    return new WritableStream({
-      write(docs) {
-        console.log("saving revs", docs);
-        stats.docsWritten += docs.length;
-        database.updateSeq += docs.length;
-      }
-    });
-  }
-};
-
-// src/fake/Database.js
-var FakeDatabase = class extends Database {
-  constructor() {
-    super();
-    this.uuid = `fake-uuid-${Math.round(Math.random() * 100)}`;
-    this.updateSeq = Math.round(Math.random() * 100);
-    this.replicator = new FakeReplicator(this);
-  }
-  init() {
-  }
-  destroy() {
-  }
-  getDoc(id) {
-    throw new Error(`fake doc '${id}' not found`);
-  }
-  saveDoc(doc) {
-    console.log("saving doc", doc);
-    this.updateSeq++;
-    return {
-      rev: "1-fake-doc-rev"
-    };
+    this.adapter = new HttpInlineAdapter({ url, headers });
+    this.replicator = new HttpInlineReplicator(this.adapter);
   }
 };
 export {
-  FakeDatabase,
-  HttpMultipartDatabase,
-  IndexedDBFlatDatabase as IndexedDbFlatDatabase,
-  IndexedDBNormalizedDatabase as IndexedDbNormalizedDatabase
+  HttpInlineDatabase,
+  IndexedDBFlatDatabase as IndexedDbFlatDatabase
 };

@@ -3,30 +3,31 @@ A minimal Pouch-like implementation of a CouchDB compatible in-browser couch. Ba
 
 **Disclaimer:** Microcouch is an absolute beta version, which currently serves more for educational purposes. I'm experimenting with various optimizations here to speed up replication. You probably want to use [PoouchDB](https://pouchdb.com/) instead.
 
-Data model compatible to PouchDBs experimental `indexeddb` adapter. It uses PouchDBs [pouchdb-merge](https://github.com/pouchdb/pouchdb/tree/master/packages/node_modules/pouchdb-merge) module.
+Data model similar to the one used in PouchDBs new `indexeddb` adapter.
+
+Microcouch uses PouchDBs [pouchdb-merge](https://github.com/pouchdb/pouchdb/tree/master/packages/node_modules/pouchdb-merge) module.
 
 Focus is on a small set of functionality:
-* replication
+* streaming replication
 * get/save single docs and in bulk
 * get by id range (like allDocs)
 * changes feed
-* no map/reduce
 * attachment support (blob only, no base64)
-* indexeddb only
+* modern web standards,  embrace es6
 * modern browsers (also no node support)
-* modern web standards
-* embrace es6
 * as few dependencies as possible
+* indexeddb and http only
 * support latest CouchDB only (3.2)
+* no map/reduce
 
 
 ## State of Work
-Pull replication works
+* Replication works (push 'n' pull, sync)
+* basic doc api (`getDoc`, `saveDoc`, `deleteDoc`)
 
 Left to do:
-* push replication
 * replication log history
-* implement `getDoc(id)`, `saveDoc(doc)`, `getDocs(range)`
+* implement `getDocs(range)`
 
 
 ## Usage
@@ -34,10 +35,10 @@ Place `dist/microcouch.js` into your served directory. Then:
 
 ```html
 <script type=module>
-  import { IndexedDbFlatDatabase, HttpMultipartDatabase } from './microcouch.js'
+  import { IndexedDbFlatDatabase, HttpInlineDatabase } from './microcouch.js'
 
   const local = new IndexedDbFlatDatabase({ name: 'mydb' })
-  const remote = new HttpMultipartDatabase({
+  const remote = new HttpInlineDatabase({
     url: new URL('https://couch.example.com/mydb'),
     headers: {
       Authorization: 'Basic ' + btoa('username:password')
@@ -54,7 +55,9 @@ Place `dist/microcouch.js` into your served directory. Then:
 ```
 
 ### WebStream Polyfill
-It is recommended to polyfill WebStreams as they're not supported fully on all browsers yet. I'd recommend [Stardazed Web Streams Implementation](https://github.com/stardazed/sd-streams), which also comes with a [CompressionStream](https://developer.mozilla.org/en-US/docs/Web/API/CompressionStream) and DecompressionStream polyfills.
+It is recommended to polyfill WebStreams as they're not supported fully on all browsers yet.
+
+I'd recommend [Stardazed Web Streams Implementation](https://github.com/stardazed/sd-streams), which also comes with a [CompressionStream](https://developer.mozilla.org/en-US/docs/Web/API/CompressionStream) and DecompressionStream polyfills. This is needed for the (experimental) HttpMultipartDatabase. If you're using HttpInlineDatabase you don't need DecompressionStream and can use a different polyfill.
 
 ```html
 <script src=//unpkg.com/@stardazed/streams-polyfill@2.4.0/dist/sd-streams-polyfill.min.js></script>
@@ -151,6 +154,7 @@ We can improve a little further by sending gzip encoded responses, and configure
 
 **Diff: 31.17%**
 
+Since the compression gain is quiet low I removed it. Therefore you don't need to include the DecompressionStream polyfill.
 
 ### 5. Comparing Pouch's `indexeddb` and `idb` Adapter
 Enabled gzip compression on the server and ran again. This time it was much slower on Pouch, probably due to changed load on the server (which is a tiny Hetzner CX11 instance).
@@ -163,6 +167,9 @@ Enabled gzip compression on the server and ran again. This time it was much slow
 `indexeddb` is a tiny little bit slower here.
 
 **Diff: 14.19% in Microcouch vs `indexeddb` adapter**
+
+### 6. Back to Inline Attachments
+Due to the lack of a multipart `_bulk_docs` api, I switched back to inline attachments, also since this matches the goal of the project (small attachments) and is faster for such. Also, I removed request body zipping, because the performance gain was very low and now you don't have to include a DecompressionStream polyfill anymore.
 
 
 (c) 2022 Johannes J. Schmidt

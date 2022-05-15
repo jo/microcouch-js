@@ -34,7 +34,7 @@ var require_spark_md5 = __commonJS({
         }
         glob.SparkMD5 = factory();
       }
-    })(function(undefined) {
+    })(function(undefined2) {
       "use strict";
       var add32 = function(a, b) {
         return a + b & 4294967295;
@@ -277,7 +277,7 @@ var require_spark_md5 = __commonJS({
           }
           ArrayBuffer.prototype.slice = function(from, to) {
             var length = this.byteLength, begin = clamp(from, length), end = length, num, target, targetArray, sourceArray;
-            if (to !== undefined) {
+            if (to !== undefined2) {
               end = clamp(to, length);
             }
             if (begin > end) {
@@ -452,7 +452,7 @@ var require_spark_md5 = __commonJS({
 
 // src/utils.js
 var import_spark_md5 = __toESM(require_spark_md5(), 1);
-var md5FromString = (string, raw) => import_spark_md5.default.hash(string, raw);
+var md5FromString = (string2, raw) => import_spark_md5.default.hash(string2, raw);
 var makeUuid = () => {
   return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16));
 };
@@ -747,8 +747,8 @@ var HttpAdapter = class {
   }
 };
 
-// src/http/multipart/Adapter.js
-var HttpMultipartAdapter = class extends HttpAdapter {
+// src/http/inline/Adapter.js
+var HttpInlineAdapter = class extends HttpAdapter {
   constructor({ url, headers }) {
     super({ url, headers });
   }
@@ -760,8 +760,7 @@ var HttpMultipartAdapter = class extends HttpAdapter {
     const response = await fetch(url, {
       headers: {
         ...this.headers,
-        "Content-Type": "application/json",
-        "Accept": "multipart/related"
+        "Content-Type": "application/json"
       },
       method: "post",
       body
@@ -770,160 +769,6 @@ var HttpMultipartAdapter = class extends HttpAdapter {
       throw new Error("Could not get docs multipart");
     }
     return response;
-  }
-};
-
-// node_modules/multipart-related/src/first-boundary-position.js
-function firstBoundaryPosition(data, boundary, offset = 0) {
-  if (offset > data.length + boundary.length + 2) {
-    return -1;
-  }
-  for (let i = offset; i < data.length; i++) {
-    if (data[i] === 45 && data[i + 1] === 45) {
-      let fullMatch, k;
-      for (k = 0; k < boundary.length; k++) {
-        fullMatch = true;
-        if (data[k + i + 2] !== boundary[k]) {
-          fullMatch = false;
-          break;
-        }
-      }
-      if (fullMatch)
-        return i;
-    }
-  }
-  return -1;
-}
-
-// node_modules/multipart-related/src/first-header-separator-position.js
-function firstHeaderSeparatorPosition(data, offset = 0) {
-  if (offset > data.length + 4) {
-    return -1;
-  }
-  for (let i = offset; i < data.length; i++) {
-    if (data[i] === 13 && data[i + 1] === 10 && data[i + 2] === 13 && data[i + 3] === 10) {
-      return i;
-    }
-  }
-  return -1;
-}
-
-// node_modules/multipart-related/src/starts-with-boundary-end.js
-function startsWithBoundaryEnd(data, boundary, offset = 0) {
-  if (offset > data.length + boundary.length + 4) {
-    return false;
-  }
-  if (data[offset] !== 45)
-    return false;
-  if (data[offset + 1] !== 45)
-    return false;
-  if (data[offset + boundary.length + 2] !== 45)
-    return false;
-  if (data[offset + boundary.length + 3] !== 45)
-    return false;
-  for (let i = 0; i < boundary.length; i++) {
-    if (data[i + offset + 2] !== boundary[i]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// node_modules/multipart-related/src/multipart-related-parser.js
-var MultipartRelatedParser = class {
-  constructor(contentType) {
-    this.encoder = new TextEncoder();
-    this.decoder = new TextDecoder();
-    const boundary = this.parseContentType(contentType);
-    this.id = boundary.id;
-    this.boundaries = [
-      boundary
-    ];
-  }
-  parseContentType(contentType) {
-    const [_, type, id] = contentType.match(/^([^;]+);\s*boundary="?([^="]+)"?/) || [];
-    if (type !== "multipart/related")
-      return;
-    const boundary = this.encoder.encode(id);
-    return {
-      id,
-      boundary
-    };
-  }
-  parsePart(data) {
-    if (this.boundaries.length === 0)
-      return null;
-    const { id, boundary } = this.boundaries[this.boundaries.length - 1];
-    const startPosition = firstBoundaryPosition(data, boundary);
-    if (startPosition === -1)
-      return null;
-    const contentPosition = firstHeaderSeparatorPosition(data, startPosition);
-    if (contentPosition === -1)
-      return null;
-    const headerData = data.slice(boundary.length + 4, contentPosition);
-    const header = this.decoder.decode(headerData);
-    const headers = header.split("\r\n").reduce((memo, line) => {
-      const [name, value] = line.split(/:\s*/);
-      memo[name] = name === "Content-Length" ? parseInt(value, 10) : value;
-      return memo;
-    }, {});
-    const { "Content-Type": contentType } = headers;
-    if (!contentType)
-      return null;
-    const { "Content-Length": contentLength } = headers;
-    const contentEndPosition = contentLength ? firstBoundaryPosition(data, boundary, contentLength + contentPosition + 6) : firstBoundaryPosition(data, boundary, contentPosition + 4);
-    if (contentEndPosition === -1)
-      return null;
-    if (data.length < contentEndPosition)
-      return null;
-    const childBoundary = this.parseContentType(contentType);
-    if (childBoundary) {
-      this.boundaries.push(childBoundary);
-      return this.parsePart(data.slice(contentPosition + 4));
-    }
-    const isBoundaryEnd = startsWithBoundaryEnd(data, boundary, contentEndPosition);
-    const endPosition = isBoundaryEnd ? contentEndPosition + boundary.length + 6 : contentEndPosition;
-    if (isBoundaryEnd)
-      this.boundaries.pop();
-    const partData = data.slice(contentPosition + 4, contentEndPosition - 2);
-    const rest = data.slice(endPosition);
-    return {
-      boundary: this.id === id ? null : id,
-      headers,
-      data: partData,
-      rest
-    };
-  }
-};
-
-// node_modules/multipart-related/src/index.js
-var MultipartRelated = class {
-  constructor(contentType) {
-    this.parser = new MultipartRelatedParser(contentType);
-    this.data = new Uint8Array(0);
-  }
-  read(chunk) {
-    if (chunk) {
-      const newData = new Uint8Array(this.data.length + chunk.length);
-      newData.set(this.data, 0);
-      newData.set(chunk, this.data.length);
-      this.data = newData;
-    }
-    const parts = [];
-    let part;
-    do {
-      part = this.parser.parsePart(this.data);
-      if (part) {
-        const { boundary, headers, data, rest } = part;
-        this.data = rest;
-        parts.push({
-          boundary,
-          headers,
-          data
-        });
-      }
-    } while (part);
-    return parts;
   }
 };
 
@@ -1083,89 +928,88 @@ var HttpReplicator = class extends Replicator {
   }
 };
 
-// src/http/multipart/Replicator.js
-var PatchableReadableStream = class extends ReadableStream {
-  constructor(reader) {
-    super({
-      async start(controller) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done)
-            break;
-          controller.enqueue(value);
-        }
-        controller.close();
-        reader.releaseLock();
+// src/http/inline/BulkGetParser.js
+var objectOpen = 123;
+var objectClose = 125;
+var string = 34;
+var backslash = 92;
+var BulkGetParser = class {
+  constructor() {
+    this.decoder = new TextDecoder();
+    this.data = new Uint8Array(0);
+    this.objectLevel = 0;
+    this.onDoc = void 0;
+  }
+  async write(chunk) {
+    if (chunk) {
+      const newData = new Uint8Array(this.data.length + chunk.length);
+      newData.set(this.data, 0);
+      newData.set(chunk, this.data.length);
+      this.data = newData;
+    }
+    let objectLevel = 0 + this.objectLevel;
+    let objectStart = -1;
+    let objectEnd = -1;
+    let innerString = false;
+    let escaping = false;
+    for (let i = 0; i < this.data.length; i++) {
+      if (this.data[i] === string && !escaping) {
+        innerString = !innerString;
       }
-    });
+      escaping = innerString && this.data[i] === backslash;
+      if (innerString)
+        continue;
+      if (this.data[i] === objectOpen) {
+        objectLevel++;
+        if (objectLevel === 2) {
+          objectStart = i;
+        }
+      }
+      if (this.data[i] === objectClose) {
+        if (objectLevel === 2) {
+          const json = this.decoder.decode(this.data.slice(objectStart, i + 1));
+          const doc = JSON.parse(json);
+          await this.onDoc(doc);
+          objectStart = -1;
+          objectEnd = i + 1;
+        }
+        objectLevel--;
+      }
+    }
+    if (objectEnd > -1) {
+      this.data = this.data.slice(objectEnd);
+      this.objectLevel = 1;
+    } else if (objectStart > -1) {
+      this.data = this.data.slice(objectStart);
+      this.objectLevel = 1;
+    }
   }
 };
-var gunzip = (blob, type) => {
-  const ds = new DecompressionStream("gzip");
-  const reader = blob.stream().getReader();
-  const readableStream = new PatchableReadableStream(reader);
-  const decompressedStream = readableStream.pipeThrough(ds);
-  const responseOptions = {
-    headers: {
-      "Content-Type": type
-    }
-  };
-  return new Response(decompressedStream, responseOptions).blob();
+
+// src/http/inline/Replicator.js
+var base64ToBlob = (data, type) => {
+  const raw = atob(data);
+  const length = raw.length;
+  const uInt8Array = new Uint8Array(length);
+  for (let i = 0; i < length; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i);
+  }
+  return new Blob([uInt8Array], { type });
+};
+var blobToBase64 = (blob) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dec = `data:${blob.type};base64,`;
+      const data = reader.result.slice(dec.length);
+      resolve(data);
+    };
+    reader.readAsDataURL(blob);
+  });
 };
 var GetRevsTransformStream = class extends TransformStream {
   constructor(adapter, stats) {
     stats.docsRead = 0;
-    const decoder = new TextDecoder();
-    const assembleDoc = async (parts) => {
-      if (parts.length === 0)
-        return;
-      const { headers, data } = parts.shift();
-      const docContentType = headers["Content-Type"];
-      if (!docContentType) {
-        throw new Error("missing Content-Type header for first part");
-      }
-      if (docContentType !== "application/json") {
-        throw new Error(`wrong Content-Type header for first part '${docContentType}', must be application/json`);
-      }
-      const json = decoder.decode(data);
-      let doc;
-      try {
-        doc = JSON.parse(json);
-      } catch (e) {
-        throw new Error("Error parsing doc JSON");
-      }
-      for (const { headers: headers2, data: data2 } of parts) {
-        const contentDisposition = headers2["Content-Disposition"];
-        if (!contentDisposition) {
-          throw new Error("attachment with missing Content-Disposition header");
-        }
-        const [_, filename] = contentDisposition.match(/filename="([^"]+)"/);
-        if (!filename) {
-          throw new Error(`missing filename in Content-Disposition header '${contentDisposition}'`);
-        }
-        if (!(filename in doc._attachments)) {
-          throw new Error(`missing filename '${filename}' in docs attachments stub`);
-        }
-        const type = headers2["Content-Type"];
-        if (!type) {
-          throw new Error("missing Content-Type header");
-        }
-        const blob = new Blob([data2], { type });
-        const contentEncoding = headers2["Content-Encoding"];
-        if (contentEncoding === "gzip") {
-          doc._attachments[filename].data = await gunzip(blob, type);
-          delete doc._attachments[filename].follows;
-          delete doc._attachments[filename].encoding;
-          delete doc._attachments[filename].encoded_length;
-        } else if (contentEncoding) {
-          throw new Error(`unsupported Content-Encoding '${contentEncoding}'. Must be 'gzip'`);
-        } else {
-          doc._attachments[filename].data = blob;
-          delete doc._attachments[filename].follows;
-        }
-      }
-      return doc;
-    };
     super({
       async transform(batch, controller) {
         if (batch.length === 0)
@@ -1183,80 +1027,40 @@ var GetRevsTransformStream = class extends TransformStream {
           throw new Error("received messages with empty revs");
         }
         const response = await adapter.bulkGet(docs);
-        const contentType = response.headers.get("Content-Type");
-        const parser = new MultipartRelated(contentType);
         const reader = response.body.getReader();
-        let lastId;
-        const docsById = {};
-        const emitDoc = async (parts, flush) => {
-          const doc = await assembleDoc(parts);
-          if (doc) {
-            const { _id: id, _rev: rev } = doc;
-            if (!(id in batchById)) {
-              throw new Error(`received a doc which was not requested: '${id}'`);
-            }
-            docsById[id] = docsById[id] || {};
-            docsById[id][rev] = doc;
-            if (lastId && lastId !== id) {
-              const idToEmit = lastId;
-              const row = batchById[idToEmit];
-              const revs = [];
-              for (const rev2 of row.revs) {
-                if (rev2.rev in docsById[idToEmit]) {
-                  const doc2 = docsById[idToEmit][rev2.rev];
-                  revs.push({ rev: rev2, doc: doc2 });
-                } else {
-                  console.warn(`could not fetch rev '${rev2.rev}' for doc '${idToEmit}'`);
-                }
-              }
-              delete docsById[idToEmit];
-              controller.enqueue({ ...row, revs });
-              stats.docsRead++;
-            }
-            lastId = id;
+        const bulkDocsParser = new BulkGetParser();
+        bulkDocsParser.onDoc = async (r) => {
+          const { id, docs: docs2 } = r;
+          if (!(id in batchById)) {
+            console.log(r);
+            throw new Error("recived doc which we did not ask for");
           }
-          if (flush) {
-            for (const id in docsById) {
-              const row = batchById[id];
-              const revs = [];
-              for (const rev of row.revs) {
-                if (rev.rev in docsById[id]) {
-                  const doc2 = docsById[id][rev.rev];
-                  revs.push({ rev, doc: doc2 });
-                } else {
-                  console.warn(`could not fetch rev '${rev.rev}' for doc '${id}'`);
-                }
+          const byRev = {};
+          for (const { ok: doc } of docs2) {
+            byRev[doc._rev] = doc;
+            if (doc._attachments) {
+              for (const name in doc._attachments) {
+                const attachment = doc._attachments[name];
+                const { data, content_type } = attachment;
+                attachment.data = await base64ToBlob(data, content_type);
               }
-              delete docsById[id];
-              controller.enqueue({ ...row, revs });
-              stats.docsRead++;
             }
           }
+          const row = batchById[id];
+          for (const rev of row.revs) {
+            if (rev.rev in byRev) {
+              rev.doc = byRev[rev.rev];
+            }
+          }
+          controller.enqueue(row);
+          stats.docsRead++;
         };
-        let batchComplete = false;
-        let currentParts = [];
-        let currentBoundary = null;
-        do {
+        while (true) {
           const { done, value } = await reader.read();
-          const parts = parser.read(value);
-          for (const part of parts) {
-            if (!part.boundary) {
-              await emitDoc(currentParts);
-              currentParts = [];
-              currentBoundary = null;
-              await emitDoc([part]);
-            } else if (currentBoundary && currentBoundary !== part.boundary) {
-              await emitDoc(currentParts);
-              currentParts = [part];
-              currentBoundary = null;
-            } else {
-              currentParts.push(part);
-              currentBoundary = part.boundary;
-            }
-          }
-          batchComplete = done;
-        } while (!batchComplete);
-        await emitDoc(currentParts, true);
+          if (done)
+            break;
+          await bulkDocsParser.write(value);
+        }
       }
     }, { highWaterMark: 8 }, { highWaterMark: 1024 * 4 });
   }
@@ -1267,20 +1071,24 @@ var SaveDocsWritableStream = class extends WritableStream {
     super({
       async write(batch) {
         const revs = batch.reduce((memo, { revs: revs2 }) => memo.concat(revs2.map(({ doc }) => doc)), []);
-        const revsWithoutAttachments = revs.filter(({ _attachments }) => !_attachments || Object.keys(_attachments).length === 0);
-        if (revsWithoutAttachments.length > 0) {
-          const response = await adapter.bulkDocs(revsWithoutAttachments);
-        }
-        const revsWithAttachments = revs.filter(({ _attachments }) => _attachments && Object.keys(_attachments).length > 0);
-        if (revsWithAttachments.length > 0) {
-          console.warn("would save docs with attachments", revsWithAttachments);
+        if (revs.length > 0) {
+          for (const doc of revs) {
+            if (doc._attachments) {
+              for (const name in doc._attachments) {
+                const attachment = doc._attachments[name];
+                const { data } = attachment;
+                attachment.data = await blobToBase64(data);
+              }
+            }
+          }
+          const response = await adapter.bulkDocs(revs);
         }
         stats.docsWritten += batch.length;
       }
     });
   }
 };
-var HttpMultipartReplicator = class extends HttpReplicator {
+var HttpInlineReplicator = class extends HttpReplicator {
   constructor(adapter) {
     super();
     this.adapter = adapter;
@@ -1293,14 +1101,14 @@ var HttpMultipartReplicator = class extends HttpReplicator {
   }
 };
 
-// src/http/multipart/Database.js
-var HttpMultipartDatabase = class extends HttpDatabase {
+// src/http/inline/Database.js
+var HttpInlineDatabase = class extends HttpDatabase {
   constructor({ url, headers }) {
     super();
-    this.adapter = new HttpMultipartAdapter({ url, headers });
-    this.replicator = new HttpMultipartReplicator(this.adapter);
+    this.adapter = new HttpInlineAdapter({ url, headers });
+    this.replicator = new HttpInlineReplicator(this.adapter);
   }
 };
 export {
-  HttpMultipartDatabase as default
+  HttpInlineDatabase as default
 };

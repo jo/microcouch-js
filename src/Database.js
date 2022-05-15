@@ -1,18 +1,16 @@
-import SparkMD5 from 'spark-md5'
+import { md5FromString, makeUuid } from './utils.js'
 
-import { makeUuid } from '../utils.js'
-
-// generate replication log id from local and remote uuids
-const generateReplicationLogId = async (localId, remoteId) => {
-  return SparkMD5.hash(`${localId}${remoteId}`)
+// generate replication log id from source and target uuids
+const generateReplicationLogId = async (targetId, sourceId) => {
+  return md5FromString(`${targetId}${sourceId}`)
 }
 
 // compare replication logs and find common ancestor
 // TODO: record and traverse history
-const findCommonAncestor = (localLog, remoteLog) => {
-  return localLog.sessionId && localLog.sessionId === remoteLog.sessionId &&
-    localLog.sourceLastSeq && localLog.sourceLastSeq === remoteLog.sourceLastSeq
-    ? localLog.sourceLastSeq
+const findCommonAncestor = (targetLog, sourceLog) => {
+  return targetLog.sessionId && targetLog.sessionId === sourceLog.sessionId &&
+    targetLog.sourceLastSeq && targetLog.sourceLastSeq === sourceLog.sourceLastSeq
+    ? targetLog.sourceLastSeq
     : null
 }
 
@@ -50,7 +48,7 @@ class Logger extends TransformStream {
   constructor (scope) {
     super({
       transform (data, controller) {
-        console.debug(scope, data)
+        console.debug(scope, data.length, data)
         controller.enqueue(data)
       }
     }, { highWaterMark: 1024*4 }, { highWaterMark: 1024*4 })
@@ -58,14 +56,12 @@ class Logger extends TransformStream {
 }
 
 // Replicate source to target
-export default async function replicate(source, target, {
+const replicate = async (source, target, {
   batchSize = {
-    getChanges: 1024,
-    getDiff: 512,
-    getRevs: 1024,
-    saveRevs: 128
+    source: 1024,
+    target: 256
   } 
-} = {}) {
+} = {}) => {
   const sessionId = makeUuid()
 
   const stats = {
@@ -76,15 +72,15 @@ export default async function replicate(source, target, {
   // get source and target database uuids
   // and current source update seq
   const [
-    { uuid: localUuid },
-    { uuid: remoteUuid, updateSeq: remoteSeq }
+    { uuid: targetUuid },
+    { uuid: sourceUuid, updateSeq: sourceSeq }
   ] = await Promise.all([
     target.replicator.getInfo(),
     source.replicator.getInfo(),
   ])
 
   // construct an id to store replication logs at
-  const replicationLogId = await generateReplicationLogId(localUuid, remoteUuid)
+  const replicationLogId = await generateReplicationLogId(targetUuid, sourceUuid)
 
   // get replication logs from source and target
   const [
@@ -98,8 +94,8 @@ export default async function replicate(source, target, {
   // find common ancestor from logs
   let startSeq = findCommonAncestor(targetLog, sourceLog)
 
-  // if start seq and remote seq match, do nothing
-  if (compareSeqs(startSeq, remoteSeq) === 0) {
+  // if start seq and source seq match, do nothing
+  if (compareSeqs(startSeq, sourceSeq) === 0) {
     return stats
   }
 
@@ -112,15 +108,15 @@ export default async function replicate(source, target, {
     // 2. get diffs from target
     // 3. get docs from source
     // 4. save docs to target
-    await source.replicator.getChanges(startSeq, { limit: batchSize.getChanges }, batchStats)
-      .pipeThrough(new Logger('getChanges'))
-      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getDiff }))
+    await source.replicator.getChanges(startSeq, { limit: batchSize.source }, batchStats)
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.target }))
+      // .pipeThrough(new Logger('got changes now getDiff'))
       .pipeThrough(target.replicator.getDiff())
-      .pipeThrough(new Logger('getDiff'))
-      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.getRevs }))
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.source }))
+      .pipeThrough(new Logger('got diffs now getRevs'))
       .pipeThrough(source.replicator.getRevs(batchStats))
-      .pipeThrough(new Logger('getRevs'))
-      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.saveRevs }))
+      .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.target }))
+      // .pipeThrough(new Logger('got revs now saveRevs'))
       .pipeTo(target.replicator.saveRevs(batchStats))
 
     // collect stats
@@ -151,9 +147,66 @@ export default async function replicate(source, target, {
 
     // exit condition:
     // * either retrieved less changes than limit
-    // * or reached the remote seq
-    changesComplete = batchStats.numberOfChanges < batchSize.getChanges || compareSeqs(batchStats.lastSeq, remoteSeq) >= 0
+    // * or reached the source seq
+    changesComplete = batchStats.numberOfChanges < batchSize.source || compareSeqs(batchStats.lastSeq, sourceSeq) >= 0
   }
     
   return stats
+}
+
+export default class Database extends EventTarget {
+  constructor () {
+    super()
+    this.replicator = null
+  }
+
+  async init () {
+    throw new Error(`init is not implemented for ${this.constructor.name}`)
+  }
+
+  async destroy () {
+    throw new Error(`destroy is not implemented for ${this.constructor.name}`)
+  }
+
+
+  async getChanges () {
+    throw new Error(`getChanges is not implemented for ${this.constructor.name}`)
+  }
+
+
+  async getDoc (id) {
+    throw new Error(`getDoc is not implemented for ${this.constructor.name}`)
+  }
+
+  async saveDoc (doc) {
+    throw new Error(`saveDoc is not implemented for ${this.constructor.name}`)
+  }
+
+  async deleteDoc (doc) {
+    throw new Error(`deleteDoc is not implemented for ${this.constructor.name}`)
+  }
+
+  async getDocs (range) {
+    throw new Error(`getDocs is not implemented for ${this.constructor.name}`)
+  }
+
+
+  async pull (other, options) {
+    const result = await replicate(other, this, options)
+    if (result.docsWritten > 0) {
+      this.dispatchEvent(new Event('change'))
+    }
+    return result
+  }
+
+  push (other, options) {
+    return replicate(this, other, options)
+  }
+
+  sync (other) {
+    return Promise.all([
+      this.pull(other),
+      this.push(other)
+    ])
+  }
 }

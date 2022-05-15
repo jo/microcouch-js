@@ -1,35 +1,19 @@
-import { winningRev as calculateWinningRev, merge, compactTree } from 'pouchdb-merge'
-import SparkMD5 from 'spark-md5'
-
-import { calculateMd5, makeUuid } from '../../utils.js'
+import IndexedDBAdapter from '../Adapter.js'
+import { md5FromBlob, makeUuid } from '../../utils.js'
+import { buildEntry, updateEntry, docFromEntry, changeFromEntry } from '../../datamodel.js'
 
 const DOC_STORE = 'docs'
 const META_STORE = 'meta'
 
-const REVS_LIMIT = 1000
-const STATUS_AVAILABLE = { status: 'available' }
-const STATUS_MISSING = { status: 'missing' }
-
-const makeRev = data => SparkMD5.hash(JSON.stringify(data))
-
-const parseRev = rev => {
-  const [prefix, id] = rev.split('-')
-  return [
-    parseInt(prefix, 10),
-    id
-  ]
-}
-
 const calculateDigest = async blob => {
-  const md5 = await calculateMd5(blob)
-  return `md5-${md5}`
+  const md5 = await md5FromBlob(blob, true)
+  const md5Base64 = btoa(md5)
+  return `md5-${md5Base64}`
 }
 
-export default class Adapter {
+export default class IndexedDBFlatAdapter extends IndexedDBAdapter {
   constructor ({ name }) {
-    this.name = name
-    this.db = null
-    this.metadata = null
+    super({ name })
   }
 
   async init () {
@@ -38,12 +22,16 @@ export default class Adapter {
     return new Promise((resolve, reject) => {
       const openReq = indexedDB.open(this.name)
 
+      openReq.onerror = e => reject(e.target.error)
+      openReq.onblocked = e => reject(e)
+
       openReq.onupgradeneeded = e => {
         const db = e.target.result
 
         const keyPath = 'id'
         const docStore = db.createObjectStore(DOC_STORE, { keyPath })
         docStore.createIndex('seq', 'seq', { unique: true })
+        docStore.createIndex('revs', 'available', { multiEntry: true })
         db.createObjectStore(META_STORE, { keyPath })
       }
 
@@ -61,51 +49,38 @@ export default class Adapter {
         metaStore
           .get(META_STORE)
           .onsuccess = e => {
-            this.metadata = e.target.result || { id: META_STORE }
-
-            let changed = false
-
-            if (!('doc_count' in this.metadata)) {
-              changed = true
-              this.metadata.doc_count = 0
-            }
-
-            if (!('seq' in this.metadata)) {
-              changed = true
-              this.metadata.seq = 0
-            }
-
-            if (!('db_uuid' in this.metadata)) {
-              changed = true
-              this.metadata.db_uuid = makeUuid()
-            }
-
-            if (changed) {
-              metaStore.put(this.metadata)
+            if (!e.target.result) {
+              const metadata =  {
+                id: META_STORE,
+                doc_count: 0,
+                seq: 0,
+                db_uuid: makeUuid()
+              }
+              metaStore.put(metadata)
             }
           }
       }
-      openReq.onerror = e => reject(e.target.error)
-      openReq.onblocked = e => reject(e)
     })
   }
 
-  destroy () {
+  getMetadata () {
     return new Promise((resolve, reject) => {
-      this.db.close()
-      const req = indexedDB.deleteDatabase(this.name)
-      req.onsuccess = () => {
-        this.db = null
-        this.metadata = null
-        resolve()
-      }
+      const transaction = this.db.transaction(META_STORE, 'readonly')
+      transaction.onerror = e => reject(e)
+      transaction
+        .objectStore(META_STORE)
+        .get(META_STORE)
+        .onsuccess = e => resolve(e.target.result)
     })
   }
 
   getLocalDoc (id) {
     const _id = `_local/${id}`
     return new Promise((resolve, reject) => {
-      this.db.transaction(DOC_STORE, 'readonly').objectStore(DOC_STORE)
+      const transaction = this.db.transaction(DOC_STORE, 'readonly')
+      transaction.onerror = e => reject(e)
+      transaction
+        .objectStore(DOC_STORE)
         .get(_id)
         .onsuccess = e => {
           const entry = e.target.result
@@ -116,366 +91,156 @@ export default class Adapter {
   }
 
   saveLocalDoc (doc) {
-    doc._rev = doc._rev ? doc._rev + 1 : 1
-    return new Promise((resolve, reject) => {
-      const entry = {
-        id: doc._id,
-        data: doc
+    const entry = {
+      id: doc._id,
+      data: {
+        ...doc,
+        _rev: doc._rev ? doc._rev + 1 : 1
       }
-      this.db.transaction(DOC_STORE, 'readwrite').objectStore(DOC_STORE)
+    }
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(DOC_STORE, 'readwrite')
+      transaction.onerror = e => reject(e)
+      transaction
+        .objectStore(DOC_STORE)
         .put(entry)
         .onsuccess = () => resolve({ rev: doc._rev })
     })
   }
 
-  getEntries (ids) {
+  async getDiff (batch) {
     return new Promise((resolve, reject) => {
-      const store = this.db.transaction(DOC_STORE, 'readonly')
-        .objectStore(DOC_STORE)
+      const transaction = this.db.transaction(DOC_STORE, 'readonly')
+      transaction.onerror = e => reject(e)
+      const index = transaction.objectStore(DOC_STORE).index('revs')
       
-      const entries = {}
-      let cnt = ids.length
-      for (const id of ids) {
-        store.get(id).onsuccess = e => {
-          entries[id] = e.target.result
-          cnt--
-          if (cnt === 0) {
-            resolve(entries)
-          }
+      const result = []
+      transaction.oncomplete = () => {
+        const filteredResult = result.filter(({ revs }) => revs.length > 0)
+        resolve(filteredResult)
+      }
+
+      for (const { id, revs } of batch) {
+        const row = { id, revs: [] }
+        for (const { rev } of revs) {
+          index.getKey([id, rev])
+            .onsuccess = e => {
+              if (!e.target.result) {
+                row.revs.push({ rev })
+              }
+            }
         }
+        result.push(row)
       }
     })
   }
 
   async getRevs (docs) {
-    const ids = docs.map(({ id }) => id)
-    const entries = await this.getEntries(ids)
-
-    for (const { id, revs } of docs) {
-      const entry = entries[id]
-      if (!entry) {
-        // TODO: throw
-        continue
-      }
-      rev.entry = entry
-
-      for (const rev of revs) {
-        const e = entry.revs[rev.rev]
-        if (!e) {
-          // TODO: throw
-          continue
-        }
-
-        // build _revisions
-        const { rev_tree: [{ pos, ids }] } = entry
-        const _revisions = { start: pos - 1, ids: [] }
-        let [revId, status, childs] = ids
-        while (childs) {
-          _revisions.start += 1
-          _revisions.ids.unshift(revId)
-          const child = childs[0] || []
-          revId = child[0]
-          status = child[1]
-          childs = child[2]
-        }
-
-        // TODO: attachments
-        
-        const { data, deleted } = e
-        rev.doc = {
-          ...data,
-          _id: id,
-          _rev: rev.rev,
-          _deleted: deleted,
-          _revisions
-        }
-      }
-    }
-    return docs
-  }
-
-  async buildEntriesWithNewEdits (docsWithEntries) {
-    const entries = []
-
-    for (const { id, revs, entry: existingEntry } of docsWithEntries) {
-      const seq = ++this.metadata.seq
-      const entry = {
-        id,
-        seq
-      }
-
-      for (const { doc } of revs ) {
-        const { _id, _rev, _deleted, _attachments, _revisions } = doc
-
-        const pos = _revisions.start - _revisions.ids.length + 1
-        let ids = [
-          _revisions.ids[0],
-          STATUS_AVAILABLE,
-          []
-        ]
-        for (let i = 1, len = _revisions.ids.length; i < len; i++) {
-          ids = [
-            _revisions.ids[i],
-            STATUS_MISSING,
-            [ids]
-          ]
-        }
-        const newRevTree = [{
-          pos,
-          ids
-        }]
-
-        const existingRevTree = existingEntry ? existingEntry.rev_tree : []
-        const { tree: revTree, stemmedRevs } = merge(existingRevTree, newRevTree[0], REVS_LIMIT)
-        const winningRev = calculateWinningRev({ rev_tree: revTree })
-        const winningRevPos = parseInt(winningRev, 10)
-
-        const attachments = existingEntry ? existingEntry.attachments : {}
-        if (_attachments) {
-          for (const name in _attachments) {
-            const attachment = _attachments[name]
-            const {
-              content_type,
-              data
-            } = attachment
-            const digest = attachment.digest
-            attachment.digest = digest
-            attachment.revpos = winningRevPos
-            attachments[digest] = {
-              data,
-              revs: {
-                [winningRev]: true
-              }
-            }
-          }
-        }
-
-        const data = {}
-        for (const key in doc) {
-          if (key.startsWith('_')) continue
-          data[key] = doc[key]
-        }
-        if (doc._attachments) {
-          data._attachments = {}
-          for (const name in doc._attachments) {
-            const { digest, revpos } = doc._attachments[name]
-            data._attachments[name] = {
-              digest,
-              revpos
-            }
-          }
-        }
-
-        const existingRevs = existingEntry ? existingEntry.revs : null
-        const revs = {
-          ...existingRevs,
-          [_rev]: {
-            data,
-            deleted: !!_deleted
-          }
-        }
-
-        // compact revs
-        const revsToCompact = compactTree({ rev_tree: revTree })
-        const revsToDelete = revsToCompact.concat(stemmedRevs)
-        for (const rev of revsToDelete) {
-          delete revs[rev]
-        }
-        // TODO: compact attachments
-
-        const deleted = revs[winningRev].deleted
-        entry.attachments = attachments
-        entry.deleted = deleted
-        entry.rev = winningRev
-        entry.rev_tree = revTree
-        entry.revs = revs
-      }
-
-      let delta
-      if (existingEntry) {
-        if (existingEntry.deleted) {
-          delta = entry.deleted ? 0 : 1
-        } else {
-          delta = entry.deleted ? -1 : 0
-        }
-      } else {
-        delta = entry.deleted ? 0 : 1
-      }
-      this.metadata.doc_count += delta
-
-      entries.push(entry)
-    }
-    
-    return entries
-  }
-
-  async buildEntries (docsWithEntries) {
-    const entries = []
-    for (const { doc, existingEntry } of docsWithEntries) {
-      const seq = ++this.metadata.seq
-
-      const { _id, _rev, _deleted, _attachments } = doc
-
-      // plain data to store
-      const data = {}
-      for (const key in doc) {
-        if (key.startsWith('_')) continue
-        data[key] = doc[key]
-      }
-      if (doc._attachments) {
-        data._attachments = {}
-        for (const name in doc._attachments) {
-          const { digest, revpos } = doc._attachments[name]
-          data._attachments[name] = {
-            digest,
-            revpos
-          }
-        }
-      }
-      
-      const newRevId = await makeRev({ ...data, _id, _rev, _deleted })
-      
-      let newRevTree
-      let newRevNum
-      
-      if (_rev) {
-        const [currentRevPos, currentRevId] = parseRev(doc._rev)
-        newRevNum = currentRevPos + 1
-        newRevTree = [{
-          pos: currentRevPos,
-          ids: [
-            currentRevId,
-            STATUS_MISSING,
-            [
-              [
-                newRevId,
-                STATUS_AVAILABLE,
-                []
-              ]
-            ]
-          ]
-        }]
-      } else {
-        newRevNum = 1
-        newRevTree = [{
-          pos: 1,
-          ids : [
-            newRevId,
-            STATUS_AVAILABLE,
-            []
-          ]
-        }]
-      }
-
-      const existingRevTree = existingEntry ? existingEntry.rev_tree : []
-      const { tree: revTree, stemmedRevs } = merge(existingRevTree, newRevTree[0], REVS_LIMIT)
-      const winningRev = calculateWinningRev({ rev_tree: revTree })
-      const winningRevPos = parseInt(winningRev, 10)
-
-      const attachments = existingEntry ? existingEntry.attachments : {}
-      if (_attachments) {
-        for (const name in _attachments) {
-          const attachment = _attachments[name]
-          const {
-            content_type,
-            data,
-            stub
-          } = attachment
-          if (stub) {
-            // TODO: donno
-            attachments[digest].revs[winningRev] = true
-            continue
-          }
-          const digest = await calculateDigest(data)
-          attachment.digest = digest
-          attachment.revpos = winningRevPos
-          attachments[digest] = {
-            data,
-            revs: {
-              [winningRev]: true
-            }
-          }
-        }
-      }
-      doc._rev = `${newRevNum}-${newRevId}`
-
-      const existingRevs = existingEntry ? existingEntry.revs : null
-      const revs = {
-        ...existingRevs,
-        [doc._rev]: {
-          data,
-          deleted: !!_deleted
-        }
-      }
-      const deleted = revs[winningRev].deleted
-      const entry = {
-        attachments,
-        deleted,
-        id: _id,
-        rev: winningRev,
-        rev_tree: revTree,
-        revs,
-        seq
-      }
-      
-      // compact revs
-      const revsToCompact = compactTree({ rev_tree: revTree })
-      const revsToDelete = revsToCompact.concat(stemmedRevs)
-      for (const rev of revsToDelete) {
-        delete entry.revs[rev]
-      }
-      // TODO: compact attachments
-
-      let delta
-      if (existingEntry) {
-        if (existingEntry.deleted) {
-          delta = deleted ? 0 : 1
-        } else {
-          delta = deleted ? -1 : 0
-        }
-      } else {
-        delta = deleted ? 0 : 1
-      }
-      this.metadata.doc_count += delta
-      entries.push(entry)
-    }
-    
-    return entries
-  }
-
-
-  async saveEntries (entries) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([DOC_STORE, META_STORE], 'readwrite')
-      const docStore = transaction.objectStore(DOC_STORE)
-      const metaStore = transaction.objectStore(META_STORE)
+      const transaction = this.db.transaction(DOC_STORE, 'readonly')
+      transaction.onerror = e => reject(e)
 
-      let docsWritten = 0
-      let cnt = entries.length
-      for (const entry of entries) {
-        docStore.put(entry).onsuccess = () => {
-          docsWritten++
-          cnt--
-          if (cnt === 0) {
-            metaStore.put(this.metadata).onsuccess = () => resolve(docsWritten)
+      const store = transaction.objectStore(DOC_STORE)
+      
+      transaction.oncomplete = () => resolve(docs)
+
+      for (const doc of docs) {
+        const { id, revs } = doc
+        
+        store
+          .get(id)
+          .onsuccess = e => {
+            const entry = e.target.result
+            if (!entry) {
+              throw new Error(`doc not found: '${id}'`)
+            }
+
+            for (const rev of revs) {
+              rev.doc = docFromEntry(entry, rev.rev)
+            }
           }
-        }
       }
     })
   }
 
-  async saveRevsWithEntries (docsWithEntries) {
-    const entries = await this.buildEntriesWithNewEdits(docsWithEntries)
-    return this.saveEntries(entries)
+  async saveDocs (docs) {
+    // save revisions
+    const docRevs = docs.map(doc => ({
+      id: doc._id,
+      revs: [{ doc }]
+    }))
+    return this.saveRevs(docRevs, { newEdits: true })
   }
 
-  async saveDocs (docs) {
-    const ids = docs.map(({ _id }) => _id)
-    const entries = await this.getEntries(ids)
-    const docsWithEntries = docs.map(doc => ({ doc, entry: entries[doc._id] }))
-    const newEntries = await this.buildEntries(docsWithEntries)
-    await this.saveEntries(newEntries)
-    return newEntries.map(({ id, rev }) => ({ ok: true, id, rev }))
+  async saveRevs (docRevs, { newEdits }) {
+    // calculate attachments digests
+    for (const { id, revs } of docRevs) {
+      for (const { doc: { _attachments } } of revs) {
+        if (!_attachments) continue
+        for (const name in _attachments) {
+          const attachment = _attachments[name]
+          const { data } = attachment
+          if (!data) continue
+          attachment.digest = await calculateDigest(data)
+        }
+      }
+    }
+    
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction([DOC_STORE, META_STORE], 'readwrite')
+      transaction.onerror = e => reject(e)
+
+      const result = []
+      transaction.oncomplete = () => resolve(result)
+      
+      const docStore = transaction.objectStore(DOC_STORE)
+      const metaStore = transaction.objectStore(META_STORE)
+
+      metaStore
+        .get(META_STORE)
+        .onsuccess = e => {
+          const metadata = e.target.result
+
+          let cnt = docRevs.length
+          for (const { id, revs } of docRevs) {
+            docStore
+              .get(id)
+              .onsuccess = e => {
+                const existingEntry = e.target.result
+
+                const isNew = !existingEntry
+                const wasDeleted = existingEntry && existingEntry.deleted
+                
+                const entry = existingEntry || buildEntry(id)
+                const updatedEntry = updateEntry(entry, revs, { newEdits })
+                updatedEntry.seq = ++metadata.seq
+                
+                const isDeleted = updatedEntry.deleted
+                
+                docStore
+                  .put(updatedEntry)
+                  .onsuccess = () => {
+                    result.docsWritten++
+
+                    let delta = 0
+                    if (isNew) {
+                      delta = 1
+                    } else {
+                      if (!wasDeleted && isDeleted) delta = -1
+                      if (wasDeleted && !isDeleted) delta = 1
+                    }
+                    metadata.doc_count += delta
+                    result.push({ id, rev: updatedEntry.rev })
+
+                    cnt--
+                    if (cnt === 0) {
+                      metaStore.put(metadata)
+                    }
+                  }
+              }
+          }
+        }
+    })
   }
 
   async getChanges ({ since, limit } = {}) {
@@ -484,29 +249,30 @@ export default class Adapter {
 
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction(DOC_STORE, 'readonly')
-      const store = transaction.objectStore(DOC_STORE).index('seq')
-      const req = store.openCursor(IDBKeyRange.lowerBound(since, true))
+      transaction.onerror = e => reject(e)
+      const index = transaction.objectStore(DOC_STORE).index('seq')
 
       const changes = []
       let lastSeq = -1
       let received = 0
 
-      req.onsuccess = e => {
-        if (!e.target.result) {
-          return
+      index.openCursor(IDBKeyRange.lowerBound(since, true))
+        .onsuccess = e => {
+          if (!e.target.result) {
+            return
+          }
+          const cursor = e.target.result
+
+          const entry = cursor.value
+          const change = changeFromEntry(entry)
+          changes.push(change)
+          lastSeq = change.seq
+
+          received++
+          if (received !== limit) {
+            cursor.continue()
+          }
         }
-        const cursor = e.target.result
-        const doc = cursor.value
-        const { id, rev, seq, deleted } = doc
-        // TODO: handle conflicts
-        const change = { seq, id, changes: [{ rev }], deleted }
-        changes.push(change)
-        lastSeq = seq
-        received++
-        if (received !== limit) {
-          cursor.continue()
-        }
-      }
 
       transaction.oncomplete = () => resolve({ changes, lastSeq })
     })

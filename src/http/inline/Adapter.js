@@ -1,6 +1,6 @@
 import HttpAdapter from '../Adapter.js'
 
-export default class HttpMultipartAdapter extends HttpAdapter {
+export default class HttpInlineAdapter extends HttpAdapter {
   constructor ({ url, headers }) {
     super({ url, headers })
   }
@@ -14,8 +14,7 @@ export default class HttpMultipartAdapter extends HttpAdapter {
     const response = await fetch(url, {
       headers: {
         ...this.headers,
-        'Content-Type': 'application/json',
-        'Accept': 'multipart/related'
+        'Content-Type': 'application/json'
       },
       method: 'post',
       body

@@ -1,7 +1,7 @@
-import BaseDatabase from '../base/Database.js'
+import Database from '../Database.js'
 import FakeReplicator from './Replicator.js'
 
-export default class FakeDatabase extends BaseDatabase {
+export default class FakeDatabase extends Database {
   constructor () {
     super()
     this.uuid = `fake-uuid-${Math.round(Math.random() * 100)}`

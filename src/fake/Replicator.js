@@ -1,7 +1,6 @@
-import BaseReplicator from '../base/Replicator.js'
+import Replicator from '../Replicator.js'
 
-
-export default class FakeReplicator extends BaseReplicator {
+export default class FakeReplicator extends Replicator {
   constructor (database) {
     super()
     this.database = database

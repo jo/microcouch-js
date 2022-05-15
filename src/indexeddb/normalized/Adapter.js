@@ -1,5 +1,6 @@
 import { winningRev as calculateWinningRev, merge, compactTree } from 'pouchdb-merge'
 
+import IndexedDBAdapter from '../Adapter.js'
 import { makeUuid } from '../../utils.js'
 
 const SEQ_STORE = 'seqs'
@@ -13,11 +14,9 @@ const REVS_LIMIT = 1000
 const STATUS_AVAILABLE = { status: 'available' }
 const STATUS_MISSING = { status: 'missing' }
 
-export default class Adapter {
+export default class IndexedDBNormalizedAdapter extends IndexedDBAdapter {
   constructor ({ name }) {
-    this.name = name
-    this.db = null
-    this.metadata = null
+    super({ name })
   }
 
   async init () {

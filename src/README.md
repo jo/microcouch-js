@@ -4,6 +4,42 @@ These are classes to be extended in the specific database classes. Consists of
 * Database
 * Replicator
 
+There are two primary implementations, one for http and one for IndexedDB:
+
+* [http/inline](./http/inline)
+* [indexeddb/flat](./indexeddb/flat)
+
+which I am mainly focusing. There is also a fake adapter, to test replication agains:
+
+* [fake](./fake)
+
+as well as experimental and possibly unmaintained versions:
+
+* [http/multipart](./http/multipart)
+* [indexeddb/normalized](./indexeddb/normalized)
+
+Those are not exported in the bundle, and are meant for testing and performance checking mainly.
+
+
+## Objects & Terminology
+Replication utilizes Streams, and the stream events are streamlined across the different transform streams.
+
+* `doc` is referred to a couch db document
+* `data` is the user data inside a doc (without underscore properties, except attachment stubs) - TBD
+* `entry` is the internal representation of a doc and its tree
+
+* `revs` consists of an id and one or more revs
+```js
+{
+  id: `id of the document`,
+  revs: [
+    {
+      rev
+      doc // optional
+    }
+  ]
+}
+```
 
 ## Database
 
@@ -70,8 +106,6 @@ Returns a ReadableStream emitting changes:
       rev: '<revision of change>'
     }
   ], // array of changed revisions
-  // TODO: deleted: false // or true - whether the document is deleted // TODO: do we need this?
-  // TODO: conflicts
 }
 ```
 

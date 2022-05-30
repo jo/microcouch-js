@@ -1,8 +1,12 @@
 import Database from '../Database.js'
+import HttpAdapter from './Adapter.js'
+import HttpReplicator from './Replicator.js'
 
 export default class HttpDatabase extends Database {
-  constructor () {
+  constructor ({ url, headers }) {
     super()
+    this.adapter = new HttpAdapter({ url, headers })
+    this.replicator = new HttpReplicator(this.adapter)
   }
 
   async getDoc (id) {

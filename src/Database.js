@@ -1,4 +1,6 @@
-import { md5FromString, makeUuid } from './utils.js'
+import { TransformStream } from 'web-streams-polyfill/ponyfill'
+
+import { md5FromString } from './md5.js'
 
 // generate replication log id from source and target uuids
 const generateReplicationLogId = async (targetId, sourceId) => {
@@ -24,6 +26,7 @@ const compareSeqs = (a, b) => {
   return aInt - bInt
 }
 
+// TODO: add timeout
 class BatchingTransformStream extends TransformStream {
   constructor ({ batchSize }) {
     super({
@@ -56,13 +59,17 @@ class Logger extends TransformStream {
 }
 
 // Replicate source to target
+// TODO: store remote id somewhere so we can skip getInfo
+// also: do we really need the remote uuid?
+// we could also just store the replication id
+// and we could also just fetch the remote update seq and compare it to our local one
 const replicate = async (source, target, {
   batchSize = {
     source: 1024,
     target: 256
   } 
 } = {}) => {
-  const sessionId = makeUuid()
+  const sessionId = crypto.randomUUID()
 
   const stats = {
     docsRead: 0,
@@ -103,6 +110,13 @@ const replicate = async (source, target, {
   while (!changesComplete) {
     const batchStats = {}
 
+    // TODO:
+    // think about using normal async for diffs, get revs and save revs
+    // like in rust
+    // and make them parallel
+    // pass through the seq
+    // and use a replication log stream at the end
+
     // run the pipeline:
     // 1. get changes from source
     // 2. get diffs from target
@@ -113,7 +127,7 @@ const replicate = async (source, target, {
       // .pipeThrough(new Logger('got changes now getDiff'))
       .pipeThrough(target.replicator.getDiff())
       .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.source }))
-      .pipeThrough(new Logger('got diffs now getRevs'))
+      // .pipeThrough(new Logger('got diffs now getRevs'))
       .pipeThrough(source.replicator.getRevs(batchStats))
       .pipeThrough(new BatchingTransformStream({ batchSize: batchSize.target }))
       // .pipeThrough(new Logger('got revs now saveRevs'))

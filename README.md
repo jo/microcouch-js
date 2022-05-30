@@ -26,10 +26,10 @@ Focus is on a small set of functionality:
 ## State of Work
 * Replication works (push 'n' pull, sync)
 * basic doc api (`getDoc`, `saveDoc`, `deleteDoc`)
+* bulk docs api (`getDocs`)
 
 Left to do:
 * replication log history
-* implement `getDocs(range)`
 
 
 Microcouch is quiet small, currently less than 30kB minified.

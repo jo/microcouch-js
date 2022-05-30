@@ -1,4 +1,6 @@
-import Replicator from '../../Replicator.js'
+import { ReadableStream, WritableStream, TransformStream } from 'web-streams-polyfill/ponyfill'
+
+import Replicator from '../Replicator.js'
 
 class GetChangesReadableStream extends ReadableStream {
   constructor (adapter, { since, limit }, stats = {}) {
@@ -70,7 +72,7 @@ class SaveDocsWritableStream extends WritableStream {
   }
 }
 
-export default class IndexedDBFlatReplicator extends Replicator  {
+export default class IndexedDBReplicator extends Replicator  {
   constructor (adapter) {
     super()
     this.adapter = adapter

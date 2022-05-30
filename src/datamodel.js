@@ -1,6 +1,6 @@
 import { winningRev as calculateWinningRev, merge, compactTree, rootToLeaf } from 'pouchdb-merge'
 
-import { md5FromString } from './utils.js'
+import { md5FromString } from './md5.js'
 
 const REVS_LIMIT = 1000
 const STATUS_AVAILABLE = { status: 'available' }

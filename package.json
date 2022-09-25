@@ -1,5 +1,5 @@
 {
-  "name": "microcouch-js",
+  "name": "microcouch",
   "version": "1.0.0",
   "description": "A minimal Pouch-like implementation of a CouchDB compatible in-browser couch.",
   "main": "src/microcouch.js",
@@ -23,19 +23,14 @@
     "url": "https://github.com/jo/microcouch-js"
   },
   "scripts": {
-    "build:indexeddb": "esbuild src/indexeddb/Database.js --bundle --format=esm --outfile=dist/indexeddb/Database.js",
-    "build:http": "esbuild src/http/Database.js --bundle --format=esm --outfile=dist/http/Database.js",
-    "build:*": "npm run build:indexeddb && npm run build:http",
-    "build": "esbuild src/microcouch.js --bundle --format=esm --outfile=dist/microcouch.js",
-    "build-min": "esbuild src/microcouch.js --bundle --minify --format=esm --outfile=dist/microcouch.min.js",
-    "build-all": "npm run build:* && npm run build && npm run build-min"
+    "build": "esbuild src/Microcouch.js --bundle --format=esm --outfile=dist/Microcouch.js",
+    "build-min": "esbuild src/Microcouch.js --bundle --minify --format=esm --outfile=dist/Microcouch.min.js",
+    "build-all": "npm run build && npm run build-min"
   },
   "devDependencies": {
-    "esbuild": "^0.14.38",
-    "web-streams-polyfill": "^3.2.1"
+    "esbuild": "^0.14.54"
   },
   "dependencies": {
-    "multipart-related": "2.0.0",
     "pouchdb-merge": "7.3.0",
     "spark-md5": "3.0.2"
   }

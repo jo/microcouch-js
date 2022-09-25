@@ -1,12 +1,12 @@
 import { winningRev as calculateWinningRev, merge, compactTree, rootToLeaf } from 'pouchdb-merge'
 
-import { md5FromString } from './md5.js'
+import SparkMD5 from 'spark-md5'
 
 const REVS_LIMIT = 1000
 const STATUS_AVAILABLE = { status: 'available' }
 const STATUS_MISSING = { status: 'missing' }
 
-const makeRev = data => md5FromString(JSON.stringify(data))
+const makeRev = data => SparkMD5.hash(JSON.stringify(data))
 
 const parseRev = rev => {
   const [prefix, id] = rev.split('-')
@@ -174,7 +174,8 @@ export const updateEntry = (entry, revs, { newEdits }) => {
         const attachment = _attachments[name]
         const {
           stub,
-          data: blob,
+          data: arrayBuffer,
+          content_type: contentType,
           digest
         } = attachment
         if (!digest) {
@@ -193,7 +194,8 @@ export const updateEntry = (entry, revs, { newEdits }) => {
           } else {
             data._attachments[name].revpos = newRevPos
             entry.attachments[digest] = {
-              data: blob,
+              data: arrayBuffer,
+              contentType,
               revs: {
                 [newRev]: true
               }
@@ -209,13 +211,14 @@ export const updateEntry = (entry, revs, { newEdits }) => {
     for (const rev of revsToDelete) {
       delete entry.revs[rev]
       // compact attachments
-      for (const digest in entry.attachments) {
-        const revs = entry.attachments[digest].revs
-        delete revs[rev]
-        if (Object.keys(revs).length === 0) {
-          delete entry.attachments[digest]
-        }
-      }
+      // TODO
+      // for (const digest in entry.attachments) {
+      //   const revs = entry.attachments[digest].revs
+      //   delete revs[rev]
+      //   if (Object.keys(revs).length === 0) {
+      //     delete entry.attachments[digest]
+      //   }
+      // }
     }
   }
 
@@ -225,9 +228,7 @@ export const updateEntry = (entry, revs, { newEdits }) => {
   return entry
 }
 
-export const docFromEntry = (entry, rev) => {
-  const { id, tree, revs, attachments } = entry
-
+export const docFromEntry = ({ id, tree, revs, attachments }, rev, { attsSince } = {}) => {
   if (!(rev in revs)) {
     throw new Error(`rev not found: '${id}@${rev.rev}'`)
   }
@@ -241,10 +242,17 @@ export const docFromEntry = (entry, rev) => {
   if (data._attachments) {
     for (const name in data._attachments) {
       const attachment = data._attachments[name]
-      const blob = attachments[attachment.digest].data
-      attachment.data = blob
-      attachment.content_type = blob.type
-      attachment.length = blob.size
+
+      const { revs } = attachments[attachment.digest];
+      const includeAttachment = !attsSince || attsSince.find(rev => !(rev in revs));
+      if (includeAttachment) {
+        const { data: arrayBuffer, contentType } = attachments[attachment.digest];
+        attachment.data = arrayBuffer;
+        attachment.content_type = contentType;
+        attachment.length = arrayBuffer.length;
+      } else {
+        attachment.stub = true;
+      }
     }
   }
 
@@ -257,12 +265,15 @@ export const docFromEntry = (entry, rev) => {
   }
 }
 
-export const changeFromEntry = ({ id, rev, seq, deleted, tree }) => {
+export const changeFromEntry = ({ id, tree, revs, attachments, rev, seq, deleted }) => {
   const paths = rootToLeaf(tree)
   const changes = paths
-    .map(({ pos, ids }) => ({
-      rev: `${pos + ids.length - 1}-${ids.pop().id}`
-    }))
+    .map(({ pos, ids }) => {
+      const rev = `${pos + ids.length - 1}-${ids.pop().id}`
+      return {
+        rev
+      }
+    })
 
   return {
     seq,

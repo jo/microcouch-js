@@ -1,15 +1,22 @@
 export default class HttpAdapter {
-  constructor ({ url, headers }) {
+  constructor (url, { headers } = {}) {
     this.url = url
     this.root = url.pathname
-    this.headers = headers
+    this.headers = headers || {}
   }
 
   async getServerInfo () {
-    const url = new URL(this.url)
-    url.pathname = '/'
+    const url = new URL(this.url);
+    const parts = url.pathname.split("/");
+    parts.pop();
+    let pathname = parts.join("/");
+    if (!pathname.endsWith("/")) {
+      pathname += "/";
+    }
+    url.pathname = pathname;
     
     const response = await fetch(url, {
+      credentials: "same-origin",
       headers: this.headers
     })
     if (response.status !== 200) {
@@ -23,6 +30,7 @@ export default class HttpAdapter {
     const url = new URL(this.url)
 
     const response = await fetch(url, {
+      credentials: "same-origin",
       headers: this.headers
     })
     if (response.status !== 200) {
@@ -36,6 +44,7 @@ export default class HttpAdapter {
     const url = new URL(`${this.root}/${id}`, this.url)
 
     const response = await fetch(url, {
+      credentials: "same-origin",
       headers: this.headers
     })
 
@@ -51,12 +60,13 @@ export default class HttpAdapter {
 
     const body = JSON.stringify(doc)
     const response = await fetch(url, {
+      method: 'put',
+      body,
+      credentials: "same-origin",
       headers: {
         ...this.headers,
         'Content-Type': 'application/json'
-      },
-      method: 'put',
-      body
+      }
     })
     if (response.status !== 201) {
       throw new Error('Could not save doc')
@@ -67,13 +77,15 @@ export default class HttpAdapter {
 
   async deleteDoc (doc) {
     const url = new URL(`${this.root}/${doc._id}`, this.url)
+    // TODO: use if match header instead
     url.searchParams.set('rev', doc._rev)
 
     const response = await fetch(url, {
+      method: 'delete',
+      credentials: "same-origin",
       headers: {
         ...this.headers
-      },
-      method: 'delete'
+      }
     })
     if (response.status !== 200) {
       throw new Error('Could not delete doc')
@@ -84,8 +96,7 @@ export default class HttpAdapter {
 
   async getChanges (since, { limit } = {}) {
     const url = new URL(`${this.root}/_changes`, this.url)
-    url.searchParams.set('feed', 'continuous')
-    url.searchParams.set('timeout', '0')
+    url.searchParams.set('feed', 'normal')
     url.searchParams.set('style', 'all_docs')
     if (since) {
       url.searchParams.set('since', since)
@@ -96,6 +107,7 @@ export default class HttpAdapter {
     }
 
     const response = await fetch(url, {
+      credentials: "same-origin",
       headers: this.headers
     })
     if (response.status !== 200) {
@@ -110,12 +122,13 @@ export default class HttpAdapter {
 
     const body = JSON.stringify(payload)
     const response = await fetch(url, {
+      method: 'post',
+      body,
+      credentials: "same-origin",
       headers: {
         ...this.headers,
         'Content-Type': 'application/json'
-      },
-      method: 'post',
-      body
+      }
     })
     if (response.status !== 200) {
       throw new Error('Could not get revs diff')
@@ -131,12 +144,13 @@ export default class HttpAdapter {
 
     const body = JSON.stringify({ docs })
     const response = await fetch(url, {
+      method: 'post',
+      body,
+      credentials: "same-origin",
       headers: {
         ...this.headers,
         'Content-Type': 'application/json'
-      },
-      method: 'post',
-      body
+      }
     })
     if (response.status !== 200) {
       throw new Error('Could not get docs multipart')
@@ -150,12 +164,13 @@ export default class HttpAdapter {
 
     const body = JSON.stringify({ docs, new_edits: false })
     const response = await fetch(url, {
+      method: 'post',
+      body,
+      credentials: "same-origin",
       headers: {
         ...this.headers,
         'Content-Type': 'application/json'
-      },
-      method: 'post',
-      body
+      }
     })
     if (response.status !== 201) {
       throw new Error('Could not save bulk docs')

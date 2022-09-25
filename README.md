@@ -26,9 +26,10 @@ Microcouch is quiet small, currently less than 30kB minified. It is about five t
 
 
 ## State of Work
+* Basics (`getInfo`, `destroy`, `reset`)
 * Replication (`push` 'n' `pull` 'n' `sync`)
-* basic doc (`getDoc`, `saveDoc`, `deleteDoc`, `getLocalDoc`, `saveLocalDoc`)
-* bulk docs (`getDocs`, `getDocsStream`, `updateDocs`)
+* Documents (`getDoc`, `saveDoc`, `deleteDoc`, `getLocalDoc`, `saveLocalDoc`)
+* Bulk (`getDocs`, `getDocsStream`, `updateDocs`)
 
 
 ## Usage

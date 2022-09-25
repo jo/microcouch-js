@@ -30,6 +30,11 @@ export default class Microcouch extends EventTarget {
     return this.init()
   }
 
+  
+  getInfo() {
+    return this.local.getInfo()
+  }
+
 
   async getDoc(id) {
     await this.init()

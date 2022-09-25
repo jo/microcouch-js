@@ -14,6 +14,10 @@ export default class IndexedDBDatabase {
     return this.adapter.destroy()
   }
 
+  getInfo() {
+    return this.adapter.getMetadata()
+  }
+
   getLocalDoc(id) {
     return this.adapter.getLocalDoc(id);
   }

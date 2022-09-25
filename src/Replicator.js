@@ -71,7 +71,9 @@ export default class Replicator {
       }
     }
     await this.writeCheckpoint()
+    this.triggerOncomplete()
   }
+
   async replicateBatch(changes, lastSeq) {
     this.info[this.remoteUuid][this.direction].docsRead += changes.length
     const diffedChanges = await this.target.getDiff(changes)
@@ -80,7 +82,8 @@ export default class Replicator {
     const result = this.target.saveRevs(changesWithRevs)
     return { changes: result }
   }
-  async writeCheckpoint() {
+
+  writeCheckpoint() {
     let i
     for (i = 0; i < this.startedBatches.length; i++) {
       if (!this.startedBatches[i].completed)
@@ -88,12 +91,17 @@ export default class Replicator {
     }
     const completedTasks = this.startedBatches.splice(0, i)
     const lastCompletedTask = completedTasks.pop()
+
     if (!lastCompletedTask) return
     if (lastCompletedTask.lastSeq === -1) return
     if (lastCompletedTask.lastSeq === this.info[this.remoteUuid][this.direction]) return
+
     this.info[this.remoteUuid][this.direction].lastSeq = lastCompletedTask.lastSeq
     this.info[this.remoteUuid][this.direction].finishedAt = new Date()
-    await this.local.saveLocalDoc(this.info)
+    return this.local.saveLocalDoc(this.info)
+  }
+
+  triggerOncomplete () {
     if (this.startedBatches.length === 0 && this.changesComplete) {
       this.oncomplete(this.info[this.remoteUuid][this.direction])
     }

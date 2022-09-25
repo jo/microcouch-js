@@ -19,7 +19,7 @@ export default class HttpDatabase {
     return uuid
   }
 
-  getChanges(since, { limit } = {}, stats = {}) {
+  getChangesStream(since, { limit } = {}, stats = {}) {
     const adapter = this.adapter
     return new ReadableStream({
       async pull(controller) {

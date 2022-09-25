@@ -1,6 +1,6 @@
 {
   "name": "microcouch",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "A minimal Pouch-like implementation of a CouchDB compatible in-browser couch.",
   "main": "src/Microcouch.js",
   "type": "module",

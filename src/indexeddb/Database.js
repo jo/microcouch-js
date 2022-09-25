@@ -50,6 +50,9 @@ export default class IndexedDBDatabase {
     return this.adapter.updateDocs(range, fn);
   }
   getChanges(since, { limit } = {}) {
+    return this.adapter.getChanges(since, { limit })
+  }
+  getChangesStream(since, { limit } = {}) {
     const adapter = this.adapter;
     return new ReadableStream({
       async pull(controller) {

@@ -33,7 +33,7 @@ export default class Replicator {
     this.info[this.remoteUuid][this.direction].docsRead = 0
     this.info[this.remoteUuid][this.direction].docsWritten = 0
     const since = this.info[this.remoteUuid][this.direction].lastSeq
-    const changesStream = this.source.getChanges(since, { limit: this.batchSize })
+    const changesStream = this.source.getChangesStream(since, { limit: this.batchSize })
     this.changesReader = changesStream.getReader()
     return new Promise(async (resolve, reject) => {
       this.oncomplete = resolve

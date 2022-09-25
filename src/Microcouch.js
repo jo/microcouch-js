@@ -75,6 +75,13 @@ export default class Microcouch extends EventTarget {
     return this.local.updateDocs(options, fn)
   }
 
+  getChanges(since, { limit } = {}) {
+    return this.local.getChanges(since, { limit })
+  }
+  getChangesStream(since, { limit } = {}) {
+    return this.local.getChangesStream(since, { limit })
+  }
+
 
   async pull() {
     await this.init()

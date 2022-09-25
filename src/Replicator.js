@@ -89,7 +89,7 @@ export default class Replicator {
     const completedTasks = this.startedBatches.splice(0, i)
     const lastCompletedTask = completedTasks.pop()
     if (!lastCompletedTask) return
-    if (llastCompletedTask.lastSeq === -1) return
+    if (lastCompletedTask.lastSeq === -1) return
     if (lastCompletedTask.lastSeq === this.info[this.remoteUuid][this.direction]) return
     this.info[this.remoteUuid][this.direction].lastSeq = lastCompletedTask.lastSeq
     this.info[this.remoteUuid][this.direction].finishedAt = new Date()

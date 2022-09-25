@@ -1,7 +1,7 @@
 # Microcouch JavaScript
 A minimal Pouch-like implementation of a CouchDB compatible in-browser couch. Basically this is for educational purpose by now. I already learned a lot.
 
-**Disclaimer:** Microcouch is an absolute beta version, which currently serves more for educational purposes. I'm experimenting with various optimizations here to speed up replication. You probably want to use [PoouchDB](https://pouchdb.com/) instead.
+**Disclaimer:** Microcouch is an absolute beta version, which currently serves more for educational purposes. I'm experimenting with various optimizations here to speed up replication. You probably want to use [PouchDB](https://pouchdb.com/) instead.
 
 Data model is the same as PouchDBs new `indexeddb` adapter.
 
@@ -22,7 +22,7 @@ Focus is on a small set of functionality:
 * no map/reduce
 
 
-Microcouch is quiet small, currently less than 30kB minified. It is about five times smaller and almost ten times faster than PouchDB, depending on the document structure.
+Microcouch is quiet small, currently less than 30kB minified. It is about five times smaller and replicates almost ten times faster than PouchDB, depending on the document structure.
 
 
 ## State of Work

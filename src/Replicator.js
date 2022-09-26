@@ -19,6 +19,7 @@ export default class Replicator {
     this.numberOfActiveBatches = 0
     this.changesComplete = false
     this.oncomplete = null
+    this.onerror = null
     this.changesReader = null
     this.sourceLog = null
     this.targetLog = null
@@ -37,6 +38,7 @@ export default class Replicator {
     this.changesReader = changesStream.getReader()
     return new Promise(async (resolve, reject) => {
       this.oncomplete = resolve
+      this.onerror = reject
       this.enqueueBatch()
     })
   }
@@ -53,25 +55,33 @@ export default class Replicator {
   }
 
   async runBatch(batch) {
-    const { value, done } = await this.changesReader.read()
-    if (done) {
-      this.changesComplete = true
-    } else {
-      const { changes, lastSeq } = value
-      batch.lastSeq = lastSeq
-      this.startedBatches.push(batch)
-      this.numberOfActiveBatches++
-      this.enqueueBatch()
-      await this.replicateBatch(changes, lastSeq)
-      batch.completed = true
-      this.numberOfActiveBatches--
-      const next = this.pendingBatches.shift()
-      if (next) {
-        this.runBatch(next)
+    try {
+      const { value, done } = await this.changesReader.read()
+      if (done) {
+        this.changesComplete = true
+      } else {
+        const { changes, lastSeq } = value
+        batch.lastSeq = lastSeq
+        this.startedBatches.push(batch)
+        this.numberOfActiveBatches++
+        this.enqueueBatch()
+        await this.replicateBatch(changes, lastSeq)
+        batch.completed = true
+        this.numberOfActiveBatches--
+        const next = this.pendingBatches.shift()
+        if (next) {
+          this.runBatch(next)
+        }
       }
+      
+      await this.writeCheckpoint()
+      
+      if (this.startedBatches.length === 0 && this.changesComplete) {
+        this.oncomplete(this.info[this.remoteUuid][this.direction])
+      }
+    } catch (e) {
+      this.onerror(e)
     }
-    await this.writeCheckpoint()
-    this.triggerOncomplete()
   }
 
   async replicateBatch(changes, lastSeq) {
@@ -99,11 +109,5 @@ export default class Replicator {
     this.info[this.remoteUuid][this.direction].lastSeq = lastCompletedTask.lastSeq
     this.info[this.remoteUuid][this.direction].finishedAt = new Date()
     return this.local.saveLocalDoc(this.info)
-  }
-
-  triggerOncomplete () {
-    if (this.startedBatches.length === 0 && this.changesComplete) {
-      this.oncomplete(this.info[this.remoteUuid][this.direction])
-    }
   }
 }

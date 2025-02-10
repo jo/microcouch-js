@@ -28,7 +28,7 @@
     "build-all": "npm run build && npm run build-min"
   },
   "devDependencies": {
-    "esbuild": "^0.14.54"
+    "esbuild": "^0.25.0"
   },
   "dependencies": {
     "pouchdb-merge": "7.3.0",
